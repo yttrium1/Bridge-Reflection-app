@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/lib/firebase";
-import { doc, getDoc, deleteDoc, collection, getDocs, orderBy, query } from "firebase/firestore";
+import { doc, getDoc, deleteDoc, updateDoc, collection, getDocs, orderBy, query } from "firebase/firestore";
 import type { TournamentData, BoardData } from "@/lib/bridge/types";
 import { useDDS } from "@/hooks/useDDS";
 
@@ -161,12 +161,36 @@ export default function TournamentDetailPage() {
               </p>
             </div>
           </div>
-          <button
-            onClick={handleDelete}
-            className="text-xs px-3 py-1 rounded bg-red-500/20 hover:bg-red-500/40 text-red-200 transition"
-          >
-            削除
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={async () => {
+                if (!user || !tournament) return;
+                let shareToken = tournament.shareToken;
+                if (!shareToken) {
+                  // Generate token
+                  shareToken = Array.from(crypto.getRandomValues(new Uint8Array(16)))
+                    .map(b => b.toString(16).padStart(2, "0")).join("");
+                  await updateDoc(
+                    doc(db, "users", user.uid, "tournaments", tournamentId),
+                    { shareToken, ownerUid: user.uid }
+                  );
+                  setTournament({ ...tournament, shareToken, ownerUid: user.uid });
+                }
+                const url = `${window.location.origin}/shared/${shareToken}`;
+                await navigator.clipboard.writeText(url);
+                alert("共有リンクをコピーしました:\n" + url);
+              }}
+              className="text-xs px-3 py-1 rounded bg-white/20 hover:bg-white/30 text-white transition"
+            >
+              {tournament.shareToken ? "リンクをコピー" : "共有リンク発行"}
+            </button>
+            <button
+              onClick={handleDelete}
+              className="text-xs px-3 py-1 rounded bg-red-500/20 hover:bg-red-500/40 text-red-200 transition"
+            >
+              削除
+            </button>
+          </div>
         </div>
       </header>
 

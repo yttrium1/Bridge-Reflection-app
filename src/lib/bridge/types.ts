@@ -64,5 +64,7 @@ export interface TournamentData {
   ranking?: string;
   sessionNumber?: string;
   totalBoards: number;
+  shareToken?: string;
+  ownerUid?: string;
   createdAt?: Date;
 }
