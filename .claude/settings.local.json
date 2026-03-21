@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__filesystem__directory_tree",
+      "WebFetch(domain:www.fitsys.jp)",
+      "Bash(find /Users/yttrium/Desktop/projects/bridge_reflection -name .* -o -type f -o -type d)",
+      "WebSearch",
+      "WebFetch(domain:bcalc.w8.pl)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:grahamhazel.com)",
+      "WebFetch(domain:bridgewinners.com)",
+      "WebFetch(domain:dds-3.apphb.com)",
+      "Bash(npm --version)",
+      "Bash(npx --version)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --turbopack)",
+      "Bash(npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --turbopack --no-react-compiler)",
+      "Bash(npx create-next-app@latest . --yes --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --turbopack)"
+    ]
+  }
+}
