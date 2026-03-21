@@ -45,7 +45,9 @@
       "Bash(git push:*)",
       "Bash(brew install:*)",
       "Bash(gh auth:*)",
-      "Bash(npx next:*)"
+      "Bash(npx next:*)",
+      "Bash(while read:*)",
+      "Bash(do sed:*)"
     ]
   }
 }

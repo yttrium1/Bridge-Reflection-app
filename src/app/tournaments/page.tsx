@@ -50,7 +50,10 @@ export default function TournamentsPage() {
       {/* Header */}
       <header className="bg-[#1a5c2e] text-white shadow-md">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-          <h1 className="text-lg font-bold">Bridge Reflection</h1>
+          <div>
+            <h1 className="text-lg font-bold">Bridge Post-Mortem</h1>
+            <p className="text-[10px] text-green-300/60">by yttrium</p>
+          </div>
           <div className="flex items-center gap-4">
             <span className="text-sm text-green-200">{user.email}</span>
             <button

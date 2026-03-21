@@ -31,8 +31,9 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-[#f0f4f1]">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-[#1a5c2e]">Bridge Reflection</h1>
+          <h1 className="text-3xl font-bold text-[#1a5c2e]">Bridge Post-Mortem</h1>
           <p className="text-sm text-gray-500 mt-1">トーナメント振り返りツール</p>
+          <p className="text-[10px] text-gray-400 mt-0.5">by yttrium</p>
         </div>
         <form
           onSubmit={handleSubmit}

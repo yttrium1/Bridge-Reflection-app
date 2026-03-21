@@ -8,6 +8,7 @@ import { db } from "@/lib/firebase";
 import { doc, getDoc, deleteDoc, updateDoc, collection, getDocs, orderBy, query } from "firebase/firestore";
 import type { TournamentData, BoardData } from "@/lib/bridge/types";
 import { useDDS } from "@/hooks/useDDS";
+import HandDiagram from "@/components/HandDiagram";
 
 function getContractLevel(contract: string): number {
   const m = contract.match(/^(\d)/);
@@ -247,6 +248,25 @@ export default function TournamentDetailPage() {
               </Link>
             );
           })}
+        </div>
+
+        {/* Hand Records */}
+        <h3 className="text-lg font-bold text-gray-700 mt-8 mb-4">Hand Records</h3>
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+          {boards.map((board) => (
+            <Link
+              key={`hand-${board.boardNumber}`}
+              href={`/tournaments/${tournamentId}/boards/${board.boardNumber}`}
+              className="block hover:shadow-md transition-shadow"
+            >
+              <HandDiagram
+                hands={board.hands}
+                dealer={board.dealer}
+                vulnerability={board.vulnerability}
+                boardNumber={board.boardNumber}
+              />
+            </Link>
+          ))}
         </div>
       </main>
     </div>

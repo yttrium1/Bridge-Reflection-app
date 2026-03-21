@@ -3,7 +3,7 @@ import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 
 export const metadata: Metadata = {
-  title: "Bridge Reflection",
+  title: "Bridge Post-Mortem",
   description: "コントラクトブリッジ トーナメント振り返りツール",
 };
 
