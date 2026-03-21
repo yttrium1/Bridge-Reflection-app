@@ -5,8 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/lib/firebase";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
-import type { TournamentData, BoardData } from "@/lib/bridge/types";
+import { doc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
+import type { TournamentData, BoardData, EditHistoryEntry } from "@/lib/bridge/types";
 import HandDiagram from "@/components/HandDiagram";
 import TravellerTable from "@/components/TravellerTable";
 import DDSTable from "@/components/DDSTable";
@@ -68,46 +68,46 @@ export default function BoardDetailPage() {
     async (bidding: BiddingEntry[]) => {
       if (!user) return;
       try {
+        const historyEntry: EditHistoryEntry = {
+          timestamp: new Date().toISOString(),
+          editor: user.email || "Owner",
+          field: "bidding",
+          oldValue: board?.bidding ? JSON.stringify(board.bidding) : "",
+          newValue: JSON.stringify(bidding),
+        };
         await updateDoc(
-          doc(
-            db,
-            "users",
-            user.uid,
-            "tournaments",
-            tournamentId,
-            "boards",
-            boardNum
-          ),
-          { bidding }
+          doc(db, "users", user.uid, "tournaments", tournamentId, "boards", boardNum),
+          { bidding, editHistory: arrayUnion(historyEntry) }
         );
+        setBoard((prev) => prev ? { ...prev, bidding } : prev);
       } catch (err) {
         console.error("Failed to save bidding:", err);
       }
     },
-    [user, tournamentId, boardNum]
+    [user, tournamentId, boardNum, board?.bidding]
   );
 
   const saveComment = useCallback(
     async (comment: string) => {
       if (!user) return;
       try {
+        const historyEntry: EditHistoryEntry = {
+          timestamp: new Date().toISOString(),
+          editor: user.email || "Owner",
+          field: "comment",
+          oldValue: board?.comment || "",
+          newValue: comment,
+        };
         await updateDoc(
-          doc(
-            db,
-            "users",
-            user.uid,
-            "tournaments",
-            tournamentId,
-            "boards",
-            boardNum
-          ),
-          { comment }
+          doc(db, "users", user.uid, "tournaments", tournamentId, "boards", boardNum),
+          { comment, editHistory: arrayUnion(historyEntry) }
         );
+        setBoard((prev) => prev ? { ...prev, comment } : prev);
       } catch (err) {
         console.error("Failed to save comment:", err);
       }
     },
-    [user, tournamentId, boardNum]
+    [user, tournamentId, boardNum, board?.comment]
   );
 
   const ddsResult = useDDS(board?.hands || null);
@@ -306,6 +306,24 @@ export default function BoardDetailPage() {
             onCommentChange={saveComment}
           />
         </div>
+
+        {/* Edit History */}
+        {board.editHistory && board.editHistory.length > 0 && (
+          <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+            <h3 className="text-sm font-bold text-gray-600 mb-2">編集履歴</h3>
+            <div className="space-y-1 max-h-40 overflow-y-auto">
+              {[...board.editHistory].reverse().map((entry, i) => (
+                <div key={i} className="text-xs text-gray-500 flex gap-2">
+                  <span className="text-gray-400 shrink-0">
+                    {new Date(entry.timestamp).toLocaleString("ja-JP")}
+                  </span>
+                  <span className="font-medium">{entry.editor}</span>
+                  <span>{entry.field === "bidding" ? "ビッディング" : "コメント"}を編集</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Traveller Table */}
         <TravellerTable travellers={board.travellers} pairNumber={pairNumber} isEW={isEW} />

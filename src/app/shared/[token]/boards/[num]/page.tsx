@@ -1,15 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { db } from "@/lib/firebase";
-import { collectionGroup, query, where, getDocs, collection, doc, getDoc } from "firebase/firestore";
-import type { TournamentData, BoardData } from "@/lib/bridge/types";
+import { collectionGroup, query, where, getDocs, doc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
+import type { TournamentData, BoardData, EditHistoryEntry } from "@/lib/bridge/types";
 import HandDiagram from "@/components/HandDiagram";
 import TravellerTable from "@/components/TravellerTable";
 import DDSTable from "@/components/DDSTable";
 import BestLead from "@/components/BestLead";
+import BiddingBox, { type BiddingEntry } from "@/components/BiddingBox";
+import CommentEditor from "@/components/CommentEditor";
 import { useDDS } from "@/hooks/useDDS";
 
 export default function SharedBoardPage() {
@@ -19,6 +21,8 @@ export default function SharedBoardPage() {
 
   const [tournament, setTournament] = useState<TournamentData | null>(null);
   const [board, setBoard] = useState<BoardData | null>(null);
+  const [ownerUid, setOwnerUid] = useState<string>("");
+  const [tournamentDocId, setTournamentDocId] = useState<string>("");
   const [loading, setLoading] = useState(true);
 
   const ddsResult = useDDS(board?.hands || null);
@@ -36,8 +40,11 @@ export default function SharedBoardPage() {
         const tDoc = snap.docs[0];
         const tData = { id: tDoc.id, ...tDoc.data() } as TournamentData;
         setTournament(tData);
+        setTournamentDocId(tDoc.id);
 
         const uid = tDoc.ref.parent.parent?.id || "";
+        setOwnerUid(uid);
+
         const bDoc = await getDoc(
           doc(db, "users", uid, "tournaments", tDoc.id, "boards", boardNum)
         );
@@ -52,6 +59,56 @@ export default function SharedBoardPage() {
     };
     fetchData();
   }, [token, boardNum]);
+
+  const boardDocRef = ownerUid && tournamentDocId
+    ? doc(db, "users", ownerUid, "tournaments", tournamentDocId, "boards", boardNum)
+    : null;
+
+  const saveBidding = useCallback(
+    async (bidding: BiddingEntry[]) => {
+      if (!boardDocRef) return;
+      try {
+        const historyEntry: EditHistoryEntry = {
+          timestamp: new Date().toISOString(),
+          editor: "Guest",
+          field: "bidding",
+          oldValue: board?.bidding ? JSON.stringify(board.bidding) : "",
+          newValue: JSON.stringify(bidding),
+        };
+        await updateDoc(boardDocRef, {
+          bidding,
+          editHistory: arrayUnion(historyEntry),
+        });
+        setBoard((prev) => prev ? { ...prev, bidding } : prev);
+      } catch (err) {
+        console.error("Failed to save bidding:", err);
+      }
+    },
+    [boardDocRef, board?.bidding]
+  );
+
+  const saveComment = useCallback(
+    async (comment: string) => {
+      if (!boardDocRef) return;
+      try {
+        const historyEntry: EditHistoryEntry = {
+          timestamp: new Date().toISOString(),
+          editor: "Guest",
+          field: "comment",
+          oldValue: board?.comment || "",
+          newValue: comment,
+        };
+        await updateDoc(boardDocRef, {
+          comment,
+          editHistory: arrayUnion(historyEntry),
+        });
+        setBoard((prev) => prev ? { ...prev, comment } : prev);
+      } catch (err) {
+        console.error("Failed to save comment:", err);
+      }
+    },
+    [boardDocRef, board?.comment]
+  );
 
   if (loading) {
     return (
@@ -146,10 +203,34 @@ export default function SharedBoardPage() {
           </div>
         </div>
 
-        {board.comment && (
+        {/* Bidding + Comment */}
+        <div className="grid lg:grid-cols-2 gap-6">
+          <BiddingBox
+            dealer={board.dealer}
+            initialBidding={board.bidding}
+            onBiddingChange={saveBidding}
+          />
+          <CommentEditor
+            initialComment={board.comment}
+            onCommentChange={saveComment}
+          />
+        </div>
+
+        {/* Edit History */}
+        {board.editHistory && board.editHistory.length > 0 && (
           <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
-            <h3 className="text-sm font-bold text-gray-600 mb-2">コメント</h3>
-            <p className="text-sm text-gray-700 whitespace-pre-wrap">{board.comment}</p>
+            <h3 className="text-sm font-bold text-gray-600 mb-2">編集履歴</h3>
+            <div className="space-y-1 max-h-40 overflow-y-auto">
+              {[...board.editHistory].reverse().map((entry, i) => (
+                <div key={i} className="text-xs text-gray-500 flex gap-2">
+                  <span className="text-gray-400 shrink-0">
+                    {new Date(entry.timestamp).toLocaleString("ja-JP")}
+                  </span>
+                  <span className="font-medium">{entry.editor}</span>
+                  <span>{entry.field === "bidding" ? "ビッディング" : "コメント"}を編集</span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

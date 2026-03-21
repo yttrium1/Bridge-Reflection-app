@@ -41,6 +41,14 @@ export interface BidEntry {
   bid: string;
 }
 
+export interface EditHistoryEntry {
+  timestamp: string;
+  editor: string; // email or "Guest"
+  field: "bidding" | "comment";
+  oldValue: string;
+  newValue: string;
+}
+
 export interface BoardData {
   boardNumber: number;
   dealer: string;
@@ -50,6 +58,7 @@ export interface BoardData {
   ddsTable: DDSTable | null;
   bidding: BidEntry[] | null;
   comment: string | null;
+  editHistory?: EditHistoryEntry[];
 }
 
 export interface TournamentData {
