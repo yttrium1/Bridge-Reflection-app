@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { spawn } from "child_process";
-import path from "path";
+import { exec } from "child_process";
+import { promisify } from "util";
+
+const execAsync = promisify(exec);
 
 function handsToStringFormat(hand: Record<string, string[]>): string {
   const suits = ["S", "H", "D", "C"];
@@ -10,26 +12,14 @@ function handsToStringFormat(hand: Record<string, string[]>): string {
   }).join(".");
 }
 
-function solveSingle(hands: Record<string, string>, dir: string, trump: string): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const singlePath = path.join(process.cwd(), "dds-calc.js");
-    const child = spawn("node", [singlePath], {
-      timeout: 15000,
-      cwd: process.cwd(),
-    });
-
-    let stdout = "";
-    let stderr = "";
-    child.stdout.on("data", (d) => { stdout += d; });
-    child.stderr.on("data", (d) => { stderr += d; });
-    child.on("close", (code) => {
-      if (code === 0) resolve(parseInt(stdout));
-      else reject(new Error(stderr || `exit ${code}`));
-    });
-    child.on("error", reject);
-    child.stdin.write(JSON.stringify({ hands, dir, trump }));
-    child.stdin.end();
-  });
+async function solveSingle(hands: Record<string, string>, dir: string, trump: string): Promise<number> {
+  const input = JSON.stringify({ hands, dir, trump });
+  const escaped = input.replace(/'/g, "'\\''");
+  const { stdout } = await execAsync(
+    `echo '${escaped}' | node dds-calc.js`,
+    { timeout: 15000, cwd: process.cwd() }
+  );
+  return parseInt(stdout.trim());
 }
 
 export async function POST(request: NextRequest) {
@@ -47,8 +37,6 @@ export async function POST(request: NextRequest) {
       N: {}, E: {}, S: {}, W: {},
     };
 
-    // Each trump in a separate process to avoid WASM corruption
-    // Only solve for North, derive others
     for (const denom of denominations) {
       const nTricks = await solveSingle(handStrings, "N", denom);
       result.N[denom] = nTricks;
