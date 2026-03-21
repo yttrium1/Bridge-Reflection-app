@@ -252,7 +252,7 @@ export default function TournamentDetailPage() {
 
         {/* Hand Records */}
         <h3 className="text-lg font-bold text-gray-700 mt-8 mb-4">Hand Records</h3>
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {boards.map((board) => (
             <Link
               key={`hand-${board.boardNumber}`}
@@ -264,6 +264,7 @@ export default function TournamentDetailPage() {
                 dealer={board.dealer}
                 vulnerability={board.vulnerability}
                 boardNumber={board.boardNumber}
+                compact
               />
             </Link>
           ))}

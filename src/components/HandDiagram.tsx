@@ -9,16 +9,16 @@ const SUIT_SYMBOLS: Record<string, { symbol: string; color: string }> = {
   C: { symbol: "\u2663", color: "text-[#1a7a3a]" },
 };
 
-function HandDisplay({ hand, label }: { hand: { S: string[]; H: string[]; D: string[]; C: string[] }; label: string }) {
+function HandDisplay({ hand, label, compact }: { hand: { S: string[]; H: string[]; D: string[]; C: string[] }; label: string; compact?: boolean }) {
   return (
     <div className="leading-snug">
-      <div className="font-bold text-xs text-gray-400 mb-0.5">{label}</div>
+      <div className={`font-bold text-gray-400 mb-0.5 ${compact ? "text-[10px]" : "text-xs"}`}>{label}</div>
       {(["S", "H", "D", "C"] as const).map((suit) => (
-        <div key={suit} className="flex items-center gap-1 whitespace-nowrap">
-          <span className={`text-lg font-bold ${SUIT_SYMBOLS[suit].color}`}>
+        <div key={suit} className="flex items-center gap-0.5 whitespace-nowrap">
+          <span className={`font-bold ${SUIT_SYMBOLS[suit].color} ${compact ? "text-xs" : "text-lg"}`}>
             {SUIT_SYMBOLS[suit].symbol}
           </span>
-          <span className="font-mono text-base tracking-tight">
+          <span className={`font-mono tracking-tighter ${compact ? "text-[11px]" : "text-base"}`}>
             {hand[suit].length > 0 ? hand[suit].join("") : "\u2014"}
           </span>
         </div>
@@ -40,11 +40,13 @@ export default function HandDiagram({
   dealer,
   vulnerability,
   boardNumber,
+  compact,
 }: {
   hands: BoardHands;
   dealer: string;
   vulnerability: string;
   boardNumber?: number;
+  compact?: boolean;
 }) {
   const vulDisplay = vulnerability === "None" ? "なし" :
     vulnerability === "NS" ? "N-S" :
@@ -56,43 +58,43 @@ export default function HandDiagram({
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
-      <div className="grid grid-cols-3 grid-rows-3 gap-2 max-w-md mx-auto">
+    <div className={`bg-white border border-gray-200 rounded-xl shadow-sm ${compact ? "p-3" : "p-5"}`}>
+      <div className={`grid grid-cols-3 grid-rows-3 ${compact ? "gap-1" : "gap-2"} ${compact ? "max-w-xs" : "max-w-md"} mx-auto`}>
         {/* Board number + info (top-left) */}
         <div className="col-start-1 row-start-1 flex flex-col justify-center">
           {boardNumber && (
-            <div className="text-2xl font-bold text-[#1a5c2e] mb-1">#{boardNumber}</div>
+            <div className={`font-bold text-[#1a5c2e] ${compact ? "text-base mb-0.5" : "text-2xl mb-1"}`}>#{boardNumber}</div>
           )}
-          <div className="text-xs text-gray-500 leading-relaxed">
-            <div>Dealer: <strong>{dealer}</strong></div>
-            <div>Vul: <strong>{vulDisplay}</strong></div>
+          <div className={`text-gray-500 leading-relaxed ${compact ? "text-[10px]" : "text-xs"}`}>
+            <div>Dl: <strong>{dealer[0]}</strong></div>
+            <div>Vul: <strong>{compact ? (vulDisplay === "なし" ? "-" : vulDisplay) : vulDisplay}</strong></div>
           </div>
         </div>
         {/* North */}
         <div className="col-start-2 row-start-1 flex justify-center">
-          <HandDisplay hand={hands.N} label="North" />
+          <HandDisplay hand={hands.N} label="N" compact={compact} />
         </div>
         {/* West */}
         <div className="col-start-1 row-start-2 flex items-center">
-          <HandDisplay hand={hands.W} label="West" />
+          <HandDisplay hand={hands.W} label="W" compact={compact} />
         </div>
         {/* Center compass */}
         <div className="col-start-2 row-start-2 flex items-center justify-center">
-          <div className="w-18 h-18 border-2 border-[#1a5c2e] rounded-lg flex items-center justify-center bg-[#f0f7f2]">
-            <div className="text-xs text-center leading-tight font-bold px-3 py-2">
+          <div className={`border-2 border-[#1a5c2e] rounded-lg flex items-center justify-center bg-[#f0f7f2] ${compact ? "w-10 h-10" : "w-18 h-18"}`}>
+            <div className={`text-center leading-tight font-bold ${compact ? "text-[8px] px-1 py-0.5" : "text-xs px-3 py-2"}`}>
               <div>{compassDir("N")}</div>
-              <div>{compassDir("W")}&nbsp;&nbsp;{compassDir("E")}</div>
+              <div>{compassDir("W")}&nbsp;{compassDir("E")}</div>
               <div>{compassDir("S")}</div>
             </div>
           </div>
         </div>
         {/* East */}
         <div className="col-start-3 row-start-2 flex items-center justify-end">
-          <HandDisplay hand={hands.E} label="East" />
+          <HandDisplay hand={hands.E} label="E" compact={compact} />
         </div>
         {/* South */}
         <div className="col-start-2 row-start-3 flex justify-center">
-          <HandDisplay hand={hands.S} label="South" />
+          <HandDisplay hand={hands.S} label="S" compact={compact} />
         </div>
       </div>
     </div>
