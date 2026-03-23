@@ -277,7 +277,7 @@ export default function TournamentDetailPage() {
                     <span className="text-sm font-normal text-gray-400 ml-2">ペア番号: {sessionPairNumber}</span>
                   </h3>
                 )}
-                <div className="grid gap-2 grid-cols-2 sm:grid-cols-4 lg:grid-cols-8">
+                <div className="grid gap-2 grid-cols-2 sm:grid-cols-4">
                   {sessionBoards.map((board) => {
                     const boardDocId = (board as BoardData & { _docId?: string })._docId || String(board.boardNumber);
                     const myResult = board.travellers.find(
@@ -304,15 +304,26 @@ export default function TournamentDetailPage() {
                         <div className="flex items-center justify-between gap-2">
                           <div className="min-w-0">
                             <div className="flex items-center gap-2">
-                              <span className="text-xs font-bold text-[#1a5c2e]">B{board.boardNumber}</span>
-                              {myResult && (
-                                <span className="text-xs text-gray-500">
-                                  {myResult.contract} {myResult.declarer}{" "}
-                                  <span className={myResult.result < 0 ? "text-red-600" : myResult.result > 0 ? "text-blue-600" : ""}>
-                                    {resultDisplay}
-                                  </span>
-                                </span>
-                              )}
+                              <span className="text-xs font-bold text-[#1a5c2e]">#{board.boardNumber}</span>
+                              {myResult && (() => {
+                                const decl = myResult.declarer as string;
+                                const declIsMyPair = isNS
+                                  ? (decl === "N" || decl === "S")
+                                  : (decl === "E" || decl === "W");
+                                return (
+                                  <>
+                                    <span className={`text-[10px] font-bold px-1 rounded ${declIsMyPair ? "text-blue-600 bg-blue-50" : "text-orange-600 bg-orange-50"}`}>
+                                      {declIsMyPair ? "Play" : "Defense"}
+                                    </span>
+                                    <span className="text-xs text-gray-500">
+                                      {myResult.contract} {myResult.declarer}{" "}
+                                      <span className={myResult.result < 0 ? "text-red-600" : myResult.result > 0 ? "text-blue-600" : ""}>
+                                        {resultDisplay}
+                                      </span>
+                                    </span>
+                                  </>
+                                );
+                              })()}
                             </div>
                             {myResult && (
                               <div className="flex items-center gap-2 text-xs text-gray-400 mt-0.5">
