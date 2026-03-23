@@ -1,12 +1,11 @@
-// DDS solver using Worker Threads - works in Cloud Run / serverless
-// Each calculation runs in an isolated Worker to avoid WASM state contamination
-import { Worker } from "worker_threads";
+// DDS solver using child_process - works in Cloud Run / serverless
+// Each calculation runs in an isolated process to avoid WASM state contamination
+import { spawn } from "child_process";
 import path from "path";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 type Compass = "N" | "E" | "S" | "W";
-type SuitOrNT = "S" | "H" | "D" | "C" | "NT";
 
 const LHO: Record<string, string> = { N: "E", E: "S", S: "W", W: "N" };
 
@@ -18,32 +17,51 @@ function handsToStringFormat(hand: Record<string, string[]>): string {
   }).join(".");
 }
 
-function getWorkerPath(): string {
-  // In development: use project root
-  // In production (Cloud Run): use relative to cwd
-  return path.resolve(process.cwd(), "dds-worker.js");
+function getCliPath(): string {
+  return path.resolve(process.cwd(), "dds-worker-cli.js");
 }
 
-function runInWorker(data: any): Promise<any> {
+function runCli(data: any): Promise<any> {
   return new Promise((resolve, reject) => {
-    const worker = new Worker(getWorkerPath(), { workerData: data });
-    worker.on("message", resolve);
-    worker.on("error", reject);
-    worker.on("exit", (code) => {
-      if (code !== 0) reject(new Error(`Worker exited with code ${code}`));
+    const child = spawn("node", [getCliPath()], {
+      stdio: ["pipe", "pipe", "pipe"],
+      timeout: 120000, // 2 min timeout
     });
+
+    let stdout = "";
+    let stderr = "";
+
+    child.stdout.on("data", (chunk: Buffer) => { stdout += chunk.toString(); });
+    child.stderr.on("data", (chunk: Buffer) => { stderr += chunk.toString(); });
+
+    child.on("close", (code: number | null) => {
+      if (code !== 0) {
+        reject(new Error(`DDS CLI exited with code ${code}: ${stderr}`));
+      } else {
+        try {
+          resolve(JSON.parse(stdout));
+        } catch {
+          reject(new Error(`Failed to parse DDS output: ${stdout}`));
+        }
+      }
+    });
+
+    child.on("error", reject);
+
+    // Write input and close stdin
+    child.stdin.write(JSON.stringify(data));
+    child.stdin.end();
   });
 }
 
 /**
  * Full DDS table: 4 directions x 5 denominations = 20 calculations
- * Each runs in separate Worker Thread for WASM isolation
+ * All computed in a single child process with cache clearing between calls
  */
 export async function computeDDSTable(
   hands: Record<string, Record<string, string[]>>
 ): Promise<Record<string, Record<string, number>>> {
   const directions: Compass[] = ["N", "E", "S", "W"];
-  const denominations: SuitOrNT[] = ["C", "D", "H", "S", "NT"];
 
   const handStrings: Record<string, string> = {};
   for (const dir of directions) {
@@ -58,30 +76,12 @@ export async function computeDDSTable(
     }
   }
 
-  const result: Record<string, Record<string, number>> = {
-    N: {}, E: {}, S: {}, W: {},
-  };
+  const response = await runCli({
+    mode: "fullTable",
+    hands: handStrings,
+  });
 
-  // Run all 20 in parallel, each in its own Worker
-  const tasks: Promise<void>[] = [];
-  for (const denom of denominations) {
-    for (const declarer of directions) {
-      const leader = LHO[declarer];
-      tasks.push(
-        runInWorker({
-          mode: "solveTricks",
-          hands: handStrings,
-          leader,
-          trump: denom,
-        }).then((leaderTricks: number) => {
-          result[declarer][denom] = 13 - leaderTricks;
-        })
-      );
-    }
-  }
-  await Promise.all(tasks);
-
-  return result;
+  return response.result;
 }
 
 /**
@@ -103,7 +103,7 @@ export async function computeBestLead(
   }
 
   const leader = LHO[declarer];
-  const results = await runInWorker({
+  const results = await runCli({
     mode: "solve",
     hands: handStrings,
     leader,
@@ -146,13 +146,13 @@ export async function computePlayAnalysis(
     rank: c.rank === "10" ? "T" : c.rank,
   }));
 
-  const results = await runInWorker({
+  const results = await runCli({
     mode: "solve",
     hands: handStrings,
     leader: nextPlayer,
     trump,
     trick,
-    partial: true, // use custom parser for < 13 cards
+    partial: true,
   });
 
   const analysis = results.map((r: any) => ({

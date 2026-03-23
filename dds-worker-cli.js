@@ -1,6 +1,6 @@
-// DDS Worker Thread - isolated WASM execution
-// This file runs as a standalone Worker, NOT bundled by Turbopack/Webpack
-const { parentPort, workerData } = require("worker_threads");
+#!/usr/bin/env node
+// DDS CLI Worker - runs as a separate process via stdin/stdout
+// Reads JSON from stdin, outputs JSON to stdout
 
 function parseHandToCards(handStr) {
   const suits = ["S", "H", "D", "C"];
@@ -24,7 +24,13 @@ function clearBridgeToolsCache() {
 }
 
 async function run() {
-  const { mode, hands, leader, trump, trick, partial } = workerData;
+  // Read input from stdin
+  const chunks = [];
+  for await (const chunk of process.stdin) {
+    chunks.push(chunk);
+  }
+  const input = JSON.parse(Buffer.concat(chunks).toString());
+  const { mode, hands, leader, trump, trick, partial } = input;
 
   if (mode === "fullTable") {
     const LHO = { N: "E", E: "S", S: "W", W: "N" };
@@ -34,9 +40,7 @@ async function run() {
 
     for (const denom of denominations) {
       for (const decl of directions) {
-        // Clear cache to get fresh WASM state
         clearBridgeToolsCache();
-
         const { doubleDummySolveTricks } = require("@bridge-tools/dd");
         const { StringParser } = require("@bridge-tools/core");
 
@@ -50,7 +54,7 @@ async function run() {
       }
     }
 
-    parentPort.postMessage({ type: "fullTable", result });
+    process.stdout.write(JSON.stringify({ type: "fullTable", result }));
   } else if (mode === "solveTricks") {
     const { doubleDummySolveTricks } = require("@bridge-tools/dd");
     const { StringParser } = require("@bridge-tools/core");
@@ -60,7 +64,7 @@ async function run() {
       deal[d] = StringParser.parseHand(hands[d]);
     }
     const result = await doubleDummySolveTricks(deal, [], leader, trump);
-    parentPort.postMessage(result);
+    process.stdout.write(JSON.stringify(result));
   } else if (mode === "solve") {
     const { doubleDummySolve } = require("@bridge-tools/dd");
     const { StringParser } = require("@bridge-tools/core");
@@ -75,14 +79,14 @@ async function run() {
     }
     const trickCards = trick || [];
     const results = await doubleDummySolve(deal, trickCards, leader, trump);
-    parentPort.postMessage(results.map(r => ({
+    process.stdout.write(JSON.stringify(results.map(r => ({
       card: { suit: r.card.suit, rank: r.card.rank },
       result: r.result,
-    })));
+    }))));
   }
 }
 
 run().catch(err => {
-  console.error("DDS Worker error:", err);
+  process.stderr.write("DDS CLI error: " + err.message);
   process.exit(1);
 });
