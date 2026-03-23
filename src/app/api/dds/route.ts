@@ -12,23 +12,6 @@ function handsToStringFormat(hand: Record<string, string[]>): string {
   }).join(".");
 }
 
-async function solveSingle(hands: Record<string, string>, dir: string, trump: string): Promise<number> {
-  const input = JSON.stringify({ hands, dir, trump });
-  const escaped = input.replace(/'/g, "'\\''");
-  const { stdout, stderr } = await execAsync(
-    `echo '${escaped}' | node dds-calc.js`,
-    { timeout: 15000, cwd: process.cwd() }
-  );
-  if (stderr) {
-    console.warn(`DDS warning for ${dir}-${trump}:`, stderr);
-  }
-  const tricks = parseInt(stdout.trim());
-  if (isNaN(tricks) || tricks < 0 || tricks > 13) {
-    throw new Error(`Invalid DDS result for ${dir}-${trump}: "${stdout.trim()}"`);
-  }
-  return tricks;
-}
-
 export async function POST(request: NextRequest) {
   try {
     const { hands } = await request.json();
@@ -39,26 +22,30 @@ export async function POST(request: NextRequest) {
       handStrings[dir] = handsToStringFormat(hands[dir]);
     }
 
-    const denominations = ["C", "D", "H", "S", "NT"];
-    const result: Record<string, Record<string, number>> = {
-      N: {}, E: {}, S: {}, W: {},
-    };
-
-    // Solve all 20 combinations (4 directions × 5 denominations) independently
-    // Run each denomination's 4 directions in parallel for speed
-    for (const denom of denominations) {
-      const [nTricks, eTricks, sTricks, wTricks] = await Promise.all([
-        solveSingle(handStrings, "N", denom),
-        solveSingle(handStrings, "E", denom),
-        solveSingle(handStrings, "S", denom),
-        solveSingle(handStrings, "W", denom),
-      ]);
-      result.N[denom] = nTricks;
-      result.E[denom] = eTricks;
-      result.S[denom] = sTricks;
-      result.W[denom] = wTricks;
+    // Validate all hands have 13 cards
+    for (const dir of directions) {
+      const cardCount = handStrings[dir].replace(/\./g, "").length;
+      if (cardCount !== 13) {
+        return NextResponse.json(
+          { error: `${dir}のハンドが${cardCount}枚です（13枚必要）` },
+          { status: 400 }
+        );
+      }
     }
 
+    // Single process: compute full 20-cell DDA table
+    const input = JSON.stringify({ hands: handStrings, mode: "full" });
+    const escaped = input.replace(/'/g, "'\\''");
+    const { stdout, stderr } = await execAsync(
+      `echo '${escaped}' | node dds-calc.js`,
+      { timeout: 60000, cwd: process.cwd() }
+    );
+
+    if (stderr) {
+      console.warn("DDS stderr:", stderr);
+    }
+
+    const result = JSON.parse(stdout.trim());
     return NextResponse.json(result);
   } catch (error) {
     console.error("DDS error:", error);
