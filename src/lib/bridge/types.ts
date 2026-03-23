@@ -59,6 +59,14 @@ export interface BoardData {
   bidding: BidEntry[] | null;
   comment: string | null;
   editHistory?: EditHistoryEntry[];
+  sessionNumber?: string;
+}
+
+export interface SessionInfo {
+  sessionNumber: string;
+  sourceUrl: string;
+  pairNumber: number;
+  totalBoards: number;
 }
 
 export interface TournamentData {
@@ -76,4 +84,6 @@ export interface TournamentData {
   shareToken?: string;
   ownerUid?: string;
   createdAt?: Date;
+  sessions?: SessionInfo[];
+  pdfUrls?: string[];
 }

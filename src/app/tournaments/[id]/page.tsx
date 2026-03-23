@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
-import { db } from "@/lib/firebase";
-import { doc, getDoc, deleteDoc, updateDoc, collection, getDocs, orderBy, query } from "firebase/firestore";
+import { db, storage } from "@/lib/firebase";
+import { doc, getDoc, deleteDoc, updateDoc, collection, getDocs, orderBy, query, arrayUnion } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import type { TournamentData, BoardData } from "@/lib/bridge/types";
 import { useDDS } from "@/hooks/useDDS";
 import HandDiagram from "@/components/HandDiagram";
@@ -80,6 +81,7 @@ export default function TournamentDetailPage() {
   const [tournament, setTournament] = useState<TournamentData | null>(null);
   const [boards, setBoards] = useState<BoardData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [uploadingPdf, setUploadingPdf] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) router.push("/login");
@@ -103,7 +105,7 @@ export default function TournamentDetailPage() {
           orderBy("boardNumber")
         );
         const boardsSnap = await getDocs(boardsQuery);
-        setBoards(boardsSnap.docs.map((d) => d.data() as BoardData));
+        setBoards(boardsSnap.docs.map((d) => ({ ...d.data(), _docId: d.id } as BoardData & { _docId: string })));
       } catch (err) {
         console.error("Failed to load tournament:", err);
       } finally {
@@ -140,6 +142,28 @@ export default function TournamentDetailPage() {
     }
   };
 
+  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user || !tournament) return;
+    setUploadingPdf(true);
+    try {
+      const storageRef = ref(storage, `users/${user.uid}/tournaments/${tournamentId}/${file.name}`);
+      await uploadBytes(storageRef, file);
+      const downloadUrl = await getDownloadURL(storageRef);
+      await updateDoc(
+        doc(db, "users", user.uid, "tournaments", tournamentId),
+        { pdfUrls: arrayUnion(downloadUrl) }
+      );
+      setTournament({ ...tournament, pdfUrls: [...(tournament.pdfUrls || []), downloadUrl] });
+    } catch (err) {
+      console.error("PDF upload failed:", err);
+      alert("PDFのアップロードに失敗しました");
+    } finally {
+      setUploadingPdf(false);
+      e.target.value = "";
+    }
+  };
+
   if (!tournament) return null;
 
   const pairNumber = tournament.pairNumber;
@@ -162,13 +186,28 @@ export default function TournamentDetailPage() {
               </p>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap justify-end">
+            <Link
+              href={`/tournaments/${tournamentId}/add-session`}
+              className="text-xs px-3 py-1 rounded bg-white/20 hover:bg-white/30 text-white transition"
+            >
+              + セッション追加
+            </Link>
+            <label className="text-xs px-3 py-1 rounded bg-white/20 hover:bg-white/30 text-white transition cursor-pointer">
+              {uploadingPdf ? "アップロード中..." : "PDF アップロード"}
+              <input
+                type="file"
+                accept=".pdf"
+                onChange={handlePdfUpload}
+                className="hidden"
+                disabled={uploadingPdf}
+              />
+            </label>
             <button
               onClick={async () => {
                 if (!user || !tournament) return;
                 let shareToken = tournament.shareToken;
                 if (!shareToken) {
-                  // Generate token
                   shareToken = Array.from(crypto.getRandomValues(new Uint8Array(16)))
                     .map(b => b.toString(16).padStart(2, "0")).join("");
                   await updateDoc(
@@ -196,78 +235,128 @@ export default function TournamentDetailPage() {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-8">
-        <div className="grid gap-2 grid-cols-2 sm:grid-cols-4 lg:grid-cols-8">
-          {boards.map((board) => {
-            const myResult = board.travellers.find(
-              (t) => t.ns === pairNumber || t.ew === pairNumber
-            );
-            const isNS = myResult?.ns === pairNumber;
-            const score = myResult
-              ? isNS
-                ? (myResult.nsScore > 0 ? myResult.nsScore : -myResult.ewScore)
-                : (myResult.ewScore > 0 ? myResult.ewScore : -myResult.nsScore)
-              : null;
-            const rawMp = myResult?.mp;
-            const mp = rawMp !== undefined ? (isNS ? rawMp : 100 - rawMp) : undefined;
-            const resultDisplay = myResult
-              ? myResult.result > 0 ? `+${myResult.result}` : myResult.result === 0 ? "=" : String(myResult.result)
-              : "";
-
-            return (
-              <Link
-                key={board.boardNumber}
-                href={`/tournaments/${tournamentId}/boards/${board.boardNumber}`}
-                className="bg-white rounded-lg shadow-sm px-3 py-2 hover:shadow-md transition-shadow border border-gray-100 block"
+        {tournament.pdfUrls && tournament.pdfUrls.length > 0 && (
+          <div className="mb-4 flex gap-2 flex-wrap">
+            {tournament.pdfUrls.map((url, i) => (
+              <a
+                key={i}
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs px-3 py-1.5 rounded-lg bg-white border border-gray-200 text-[#1a5c2e] hover:bg-green-50 transition inline-flex items-center gap-1"
               >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-[#1a5c2e]">B{board.boardNumber}</span>
-                      {myResult && (
-                        <span className="text-xs text-gray-500">
-                          {myResult.contract} {myResult.declarer}{" "}
-                          <span className={myResult.result < 0 ? "text-red-600" : myResult.result > 0 ? "text-blue-600" : ""}>
-                            {resultDisplay}
-                          </span>
-                        </span>
-                      )}
-                    </div>
-                    {myResult && (
-                      <div className="flex items-center gap-2 text-xs text-gray-400 mt-0.5">
-                        <span>{score}</span>
-                        <BoardCardDD board={board} pairNumber={pairNumber} />
-                      </div>
-                    )}
-                  </div>
-                  {mp !== undefined && (
-                    <div className={`text-sm font-bold shrink-0 ${mp >= 60 ? "text-blue-600" : mp <= 40 ? "text-red-600" : "text-gray-500"}`}>
-                      {mp.toFixed(0)}%
-                    </div>
-                  )}
+                PDF {i + 1} を表示
+              </a>
+            ))}
+          </div>
+        )}
+        {(() => {
+          // Group boards by session
+          const sessions = new Map<string, (BoardData & { _docId?: string })[]>();
+          for (const board of boards) {
+            const sn = (board as BoardData & { sessionNumber?: string }).sessionNumber || tournament.sessionNumber || "1";
+            if (!sessions.has(sn)) sessions.set(sn, []);
+            sessions.get(sn)!.push(board);
+          }
+          const sessionEntries = Array.from(sessions.entries()).sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }));
+          const hasSessions = sessionEntries.length > 1;
+
+          // Get pair number for each session
+          const getSessionPairNumber = (sn: string): number => {
+            const sessionInfo = tournament.sessions?.find(s => s.sessionNumber === sn);
+            return sessionInfo?.pairNumber || tournament.pairNumber;
+          };
+
+          return sessionEntries.map(([sn, sessionBoards]) => {
+            const sessionPairNumber = getSessionPairNumber(sn);
+            return (
+              <div key={sn} className={hasSessions ? "mb-8" : ""}>
+                {hasSessions && (
+                  <h3 className="text-lg font-bold text-gray-700 mb-3 border-b border-gray-200 pb-1">
+                    Session {sn}
+                    <span className="text-sm font-normal text-gray-400 ml-2">ペア番号: {sessionPairNumber}</span>
+                  </h3>
+                )}
+                <div className="grid gap-2 grid-cols-2 sm:grid-cols-4 lg:grid-cols-8">
+                  {sessionBoards.map((board) => {
+                    const boardDocId = (board as BoardData & { _docId?: string })._docId || String(board.boardNumber);
+                    const myResult = board.travellers.find(
+                      (t) => t.ns === sessionPairNumber || t.ew === sessionPairNumber
+                    );
+                    const isNS = myResult?.ns === sessionPairNumber;
+                    const score = myResult
+                      ? isNS
+                        ? (myResult.nsScore > 0 ? myResult.nsScore : -myResult.ewScore)
+                        : (myResult.ewScore > 0 ? myResult.ewScore : -myResult.nsScore)
+                      : null;
+                    const rawMp = myResult?.mp;
+                    const mp = rawMp !== undefined ? (isNS ? rawMp : 100 - rawMp) : undefined;
+                    const resultDisplay = myResult
+                      ? myResult.result > 0 ? `+${myResult.result}` : myResult.result === 0 ? "=" : String(myResult.result)
+                      : "";
+
+                    return (
+                      <Link
+                        key={boardDocId}
+                        href={`/tournaments/${tournamentId}/boards/${boardDocId}`}
+                        className="bg-white rounded-lg shadow-sm px-3 py-2 hover:shadow-md transition-shadow border border-gray-100 block"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-[#1a5c2e]">B{board.boardNumber}</span>
+                              {myResult && (
+                                <span className="text-xs text-gray-500">
+                                  {myResult.contract} {myResult.declarer}{" "}
+                                  <span className={myResult.result < 0 ? "text-red-600" : myResult.result > 0 ? "text-blue-600" : ""}>
+                                    {resultDisplay}
+                                  </span>
+                                </span>
+                              )}
+                            </div>
+                            {myResult && (
+                              <div className="flex items-center gap-2 text-xs text-gray-400 mt-0.5">
+                                <span>{score}</span>
+                                <BoardCardDD board={board} pairNumber={sessionPairNumber} />
+                              </div>
+                            )}
+                          </div>
+                          {mp !== undefined && (
+                            <div className={`text-sm font-bold shrink-0 ${mp >= 60 ? "text-blue-600" : mp <= 40 ? "text-red-600" : "text-gray-500"}`}>
+                              {mp.toFixed(0)}%
+                            </div>
+                          )}
+                        </div>
+                      </Link>
+                    );
+                  })}
                 </div>
-              </Link>
+              </div>
             );
-          })}
-        </div>
+          });
+        })()}
 
         {/* Hand Records */}
         <h3 className="text-lg font-bold text-gray-700 mt-8 mb-4">Hand Records</h3>
         <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-          {boards.map((board) => (
-            <Link
-              key={`hand-${board.boardNumber}`}
-              href={`/tournaments/${tournamentId}/boards/${board.boardNumber}`}
-              className="block hover:shadow-md transition-shadow"
-            >
-              <HandDiagram
-                hands={board.hands}
-                dealer={board.dealer}
-                vulnerability={board.vulnerability}
-                boardNumber={board.boardNumber}
-                compact
-              />
-            </Link>
-          ))}
+          {boards.map((board) => {
+            const boardDocId = (board as BoardData & { _docId?: string })._docId || String(board.boardNumber);
+            return (
+              <Link
+                key={`hand-${boardDocId}`}
+                href={`/tournaments/${tournamentId}/boards/${boardDocId}`}
+                className="block hover:shadow-md transition-shadow"
+              >
+                <HandDiagram
+                  hands={board.hands}
+                  dealer={board.dealer}
+                  vulnerability={board.vulnerability}
+                  boardNumber={board.boardNumber}
+                  compact
+                />
+              </Link>
+            );
+          })}
         </div>
       </main>
     </div>

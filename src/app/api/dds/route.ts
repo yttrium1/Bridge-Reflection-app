@@ -15,11 +15,18 @@ function handsToStringFormat(hand: Record<string, string[]>): string {
 async function solveSingle(hands: Record<string, string>, dir: string, trump: string): Promise<number> {
   const input = JSON.stringify({ hands, dir, trump });
   const escaped = input.replace(/'/g, "'\\''");
-  const { stdout } = await execAsync(
+  const { stdout, stderr } = await execAsync(
     `echo '${escaped}' | node dds-calc.js`,
     { timeout: 15000, cwd: process.cwd() }
   );
-  return parseInt(stdout.trim());
+  if (stderr) {
+    console.warn(`DDS warning for ${dir}-${trump}:`, stderr);
+  }
+  const tricks = parseInt(stdout.trim());
+  if (isNaN(tricks) || tricks < 0 || tricks > 13) {
+    throw new Error(`Invalid DDS result for ${dir}-${trump}: "${stdout.trim()}"`);
+  }
+  return tricks;
 }
 
 export async function POST(request: NextRequest) {
@@ -37,12 +44,19 @@ export async function POST(request: NextRequest) {
       N: {}, E: {}, S: {}, W: {},
     };
 
+    // Solve all 20 combinations (4 directions × 5 denominations) independently
+    // Run each denomination's 4 directions in parallel for speed
     for (const denom of denominations) {
-      const nTricks = await solveSingle(handStrings, "N", denom);
+      const [nTricks, eTricks, sTricks, wTricks] = await Promise.all([
+        solveSingle(handStrings, "N", denom),
+        solveSingle(handStrings, "E", denom),
+        solveSingle(handStrings, "S", denom),
+        solveSingle(handStrings, "W", denom),
+      ]);
       result.N[denom] = nTricks;
-      result.S[denom] = nTricks;
-      result.E[denom] = 13 - nTricks;
-      result.W[denom] = 13 - nTricks;
+      result.E[denom] = eTricks;
+      result.S[denom] = sTricks;
+      result.W[denom] = wTricks;
     }
 
     return NextResponse.json(result);
