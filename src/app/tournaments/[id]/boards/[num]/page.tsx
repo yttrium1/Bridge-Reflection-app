@@ -178,11 +178,28 @@ export default function BoardDetailPage() {
           <div className="bg-[#c8a84e]/10 border border-[#c8a84e]/30 rounded-xl p-4">
             <div className="flex items-center justify-between">
               <div>
-                <span className="text-sm text-gray-600">
-                  {myResult.ns === pairNumber
-                    ? `NS ${myResult.ns} vs EW ${myResult.ew}`
-                    : `EW ${myResult.ew} vs NS ${myResult.ns}`}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-600">
+                    {myResult.ns === pairNumber
+                      ? `NS ${myResult.ns} vs EW ${myResult.ew}`
+                      : `EW ${myResult.ew} vs NS ${myResult.ns}`}
+                  </span>
+                  {(() => {
+                    const decl = myResult.declarer as string;
+                    const declIsMyPair = isEW
+                      ? (decl === "E" || decl === "W")
+                      : (decl === "N" || decl === "S");
+                    return (
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded ${
+                        declIsMyPair
+                          ? "bg-blue-100 text-blue-700"
+                          : "bg-orange-100 text-orange-700"
+                      }`}>
+                        {declIsMyPair ? "Play" : "Defense"}
+                      </span>
+                    );
+                  })()}
+                </div>
                 <div className="text-lg font-bold">
                   {myResult.contract} by {myResult.declarer}{" "}
                   <span
@@ -287,6 +304,7 @@ export default function BoardDetailPage() {
             dealer={board.dealer}
             vulnerability={board.vulnerability}
             boardNumber={board.boardNumber}
+            myDirections={isEW ? ["E", "W"] : ["N", "S"]}
           />
           <div className="flex flex-col gap-3">
             <DDSTable ddsTable={ddsResult || board.ddsTable} />

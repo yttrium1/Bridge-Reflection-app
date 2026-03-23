@@ -9,10 +9,12 @@ const SUIT_SYMBOLS: Record<string, { symbol: string; color: string }> = {
   C: { symbol: "\u2663", color: "text-[#1a7a3a]" },
 };
 
-function HandDisplay({ hand, label, compact }: { hand: { S: string[]; H: string[]; D: string[]; C: string[] }; label: string; compact?: boolean }) {
+function HandDisplay({ hand, label, compact, isMe }: { hand: { S: string[]; H: string[]; D: string[]; C: string[] }; label: string; compact?: boolean; isMe?: boolean }) {
   return (
     <div className="leading-snug">
-      <div className={`font-bold text-gray-400 mb-0.5 ${compact ? "text-[10px]" : "text-xs"}`}>{label}</div>
+      <div className={`font-bold mb-0.5 ${compact ? "text-[10px]" : "text-xs"} ${isMe ? "text-yellow-600" : "text-gray-400"}`}>
+        {label}{isMe && !compact && " ★"}
+      </div>
       {(["S", "H", "D", "C"] as const).map((suit) => (
         <div key={suit} className="flex items-center gap-0.5 whitespace-nowrap">
           <span className={`font-bold ${SUIT_SYMBOLS[suit].color} ${compact ? "text-xs" : "text-lg"}`}>
@@ -41,20 +43,29 @@ export default function HandDiagram({
   vulnerability,
   boardNumber,
   compact,
+  myDirections,
 }: {
   hands: BoardHands;
   dealer: string;
   vulnerability: string;
   boardNumber?: number;
   compact?: boolean;
+  myDirections?: string[];
 }) {
   const vulDisplay = vulnerability === "None" ? "なし" :
     vulnerability === "NS" ? "N-S" :
     vulnerability === "EW" ? "E-W" : "Both";
 
+  const isMyDir = (d: string) => myDirections?.includes(d) ?? false;
+
   const compassDir = (d: string) => {
     const vul = isVulDirection(d, vulnerability);
-    return <span className={vul ? "text-red-600" : "text-[#1a5c2e]"}>{d}</span>;
+    const mine = isMyDir(d);
+    return (
+      <span className={`${vul ? "text-red-600" : "text-[#1a5c2e]"} ${mine ? "underline decoration-2 underline-offset-2 decoration-yellow-500" : ""}`}>
+        {d}
+      </span>
+    );
   };
 
   return (
@@ -72,11 +83,11 @@ export default function HandDiagram({
         </div>
         {/* North */}
         <div className="col-start-2 row-start-1 flex justify-center">
-          <HandDisplay hand={hands.N} label="N" compact={compact} />
+          <HandDisplay hand={hands.N} label="N" compact={compact} isMe={isMyDir("N")} />
         </div>
         {/* West */}
         <div className="col-start-1 row-start-2 flex items-center">
-          <HandDisplay hand={hands.W} label="W" compact={compact} />
+          <HandDisplay hand={hands.W} label="W" compact={compact} isMe={isMyDir("W")} />
         </div>
         {/* Center compass */}
         <div className="col-start-2 row-start-2 flex items-center justify-center">
@@ -90,11 +101,11 @@ export default function HandDiagram({
         </div>
         {/* East */}
         <div className="col-start-3 row-start-2 flex items-center justify-end">
-          <HandDisplay hand={hands.E} label="E" compact={compact} />
+          <HandDisplay hand={hands.E} label="E" compact={compact} isMe={isMyDir("E")} />
         </div>
         {/* South */}
         <div className="col-start-2 row-start-3 flex justify-center">
-          <HandDisplay hand={hands.S} label="S" compact={compact} />
+          <HandDisplay hand={hands.S} label="S" compact={compact} isMe={isMyDir("S")} />
         </div>
       </div>
     </div>
