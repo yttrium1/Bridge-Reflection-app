@@ -78,9 +78,19 @@ export default function PlayAnalyzer({ hands, declarer, trump, contract, myDirec
     setAnalyzing(false);
   }, [remainingHands, currentTrick, nextPlayer, trump, isGameOver]);
 
+  // Track state changes to trigger analysis - use a key that changes when position changes
+  const positionKey = JSON.stringify({
+    hands: Object.fromEntries(["N","E","S","W"].map(d => [d, remainingHands[d as Direction]])),
+    trick: currentTrick.map(c => `${c.player}${c.suit}${c.rank}`),
+    next: nextPlayer,
+  });
+
   useEffect(() => {
-    if (showAnalysis && !isGameOver) fetchAnalysis();
-  }, [fetchAnalysis, showAnalysis, isGameOver]);
+    if (showAnalysis && !isGameOver) {
+      fetchAnalysis();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [positionKey, showAnalysis, isGameOver]);
 
   const getCardHighlight = (suit: string, rank: string): string => {
     if (!showAnalysis || analysis.length === 0) return "";
@@ -292,22 +302,59 @@ export default function PlayAnalyzer({ hands, declarer, trump, contract, myDirec
         <div className="col-start-1 row-start-2 flex items-center">
           {renderHandSuits("W")}
         </div>
-        {/* Center compass / current trick */}
+        {/* Center - cross layout for played cards */}
         <div className="col-start-2 row-start-2 flex items-center justify-center">
-          <div className="w-24 h-24 border-2 border-[#1a5c2e] rounded-lg bg-[#f0f7f2] flex flex-col items-center justify-center p-1">
-            {currentTrick.length === 0 ? (
-              <div className="text-[10px] text-gray-400 text-center leading-tight">
-                {isGameOver ? "終了" : `${nextPlayer}がリード`}
+          <div className="w-28 h-28 border-2 border-[#1a5c2e] rounded-lg bg-[#f0f7f2] relative">
+            {currentTrick.length === 0 && !isGameOver && (
+              <div className="absolute inset-0 flex items-center justify-center text-[10px] text-gray-400">
+                {nextPlayer}がリード
               </div>
-            ) : (
-              currentTrick.map((card, i) => (
-                <div key={i} className="flex items-center gap-0.5 text-sm leading-tight">
-                  <span className="text-[9px] text-gray-400 w-3">{card.player}</span>
-                  <span className={`font-bold ${SUIT_SYMBOLS[card.suit].color}`}>{SUIT_SYMBOLS[card.suit].symbol}</span>
-                  <span className="font-mono text-sm">{card.rank}</span>
-                </div>
-              ))
             )}
+            {isGameOver && currentTrick.length === 0 && (
+              <div className="absolute inset-0 flex items-center justify-center text-[10px] text-gray-400">
+                終了
+              </div>
+            )}
+            {/* N position - top center */}
+            {currentTrick.find(c => c.player === "N") && (() => {
+              const card = currentTrick.find(c => c.player === "N")!;
+              return (
+                <div className="absolute top-1 left-1/2 -translate-x-1/2 flex items-center gap-0.5 text-sm">
+                  <span className={`font-bold ${SUIT_SYMBOLS[card.suit].color}`}>{SUIT_SYMBOLS[card.suit].symbol}</span>
+                  <span className="font-mono">{card.rank}</span>
+                </div>
+              );
+            })()}
+            {/* S position - bottom center */}
+            {currentTrick.find(c => c.player === "S") && (() => {
+              const card = currentTrick.find(c => c.player === "S")!;
+              return (
+                <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex items-center gap-0.5 text-sm">
+                  <span className={`font-bold ${SUIT_SYMBOLS[card.suit].color}`}>{SUIT_SYMBOLS[card.suit].symbol}</span>
+                  <span className="font-mono">{card.rank}</span>
+                </div>
+              );
+            })()}
+            {/* W position - left center */}
+            {currentTrick.find(c => c.player === "W") && (() => {
+              const card = currentTrick.find(c => c.player === "W")!;
+              return (
+                <div className="absolute left-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5 text-sm">
+                  <span className={`font-bold ${SUIT_SYMBOLS[card.suit].color}`}>{SUIT_SYMBOLS[card.suit].symbol}</span>
+                  <span className="font-mono">{card.rank}</span>
+                </div>
+              );
+            })()}
+            {/* E position - right center */}
+            {currentTrick.find(c => c.player === "E") && (() => {
+              const card = currentTrick.find(c => c.player === "E")!;
+              return (
+                <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5 text-sm">
+                  <span className={`font-bold ${SUIT_SYMBOLS[card.suit].color}`}>{SUIT_SYMBOLS[card.suit].symbol}</span>
+                  <span className="font-mono">{card.rank}</span>
+                </div>
+              );
+            })()}
           </div>
         </div>
         {/* East */}
