@@ -266,12 +266,17 @@ export default function BoardDetailPage() {
                 const colorClass = diff === 0 ? "text-gray-400"
                   : declIsMyPair ? (diff > 0 ? "text-blue-600" : "text-red-600")
                   : (diff > 0 ? "text-red-600" : "text-blue-600");
+                // Label based on perspective
+                const perspectiveLabel = diff === 0 ? "DD通り"
+                  : declIsMyPair
+                    ? (diff > 0 ? "DD超え" : "DD未達")
+                    : (diff < 0 ? "守備成功" : "守備失敗");
                 return (
                   <div className="text-right">
-                    <div className="text-sm text-gray-500">DD</div>
+                    <div className="text-sm text-gray-500">DD予測</div>
                     <div className="text-lg font-bold text-gray-500">{ddsDisplay}</div>
-                    <div className={`text-xs ${colorClass}`}>
-                      vs実際: {diffDisplay}
+                    <div className={`text-xs font-bold ${colorClass}`}>
+                      {perspectiveLabel} {diff !== 0 && `(${diffDisplay})`}
                     </div>
                   </div>
                 );
