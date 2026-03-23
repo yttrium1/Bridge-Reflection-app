@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { parseUrlParams, fetchInitialPage, fetchBoardByPostback } from "@/lib/scraper/fitsys";
-import { parseHandRecord, parseTravellerTable } from "@/lib/scraper/parser";
+import { parseUrlParams, fetchInitialPage, fetchBoardByPostback, switchToNsSortView } from "@/lib/scraper/fitsys";
+import { parseHandRecord, parseTravellerTable, detectScoringType } from "@/lib/scraper/parser";
 import type { BoardData } from "@/lib/bridge/types";
 
 export async function POST(request: NextRequest) {
@@ -21,10 +21,20 @@ export async function POST(request: NextRequest) {
     const initial = await fetchInitialPage(fullUrl);
     const boards: BoardData[] = [];
 
+    // Detect scoring type from first board's table
+    const scoringType = detectScoringType(initial.$);
+
+    // For IMP format, switch to NS番号順 view to get per-pair data
+    let firstPage = initial;
+    if (scoringType === "IMP") {
+      const nsSorted = await switchToNsSortView(fullUrl, initial.fields, 1);
+      firstPage = { ...initial, $: nsSorted.$, fields: nsSorted.fields };
+    }
+
     // Parse first board
-    const handText = initial.$("#txtHand").val() as string || "";
+    const handText = firstPage.$("#txtHand").val() as string || "";
     const handData = parseHandRecord(handText);
-    const travellers = parseTravellerTable(initial.$);
+    const travellers = parseTravellerTable(firstPage.$, "IMP_NS");
 
     boards.push({
       ...handData,
@@ -35,7 +45,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Fetch remaining boards
-    let currentFields = initial.fields;
+    let currentFields = firstPage.fields;
 
     for (let boardNum = 2; boardNum <= initial.totalBoards; boardNum++) {
       // Delay between requests
@@ -45,7 +55,13 @@ export async function POST(request: NextRequest) {
         const result = await fetchBoardByPostback(fullUrl, boardNum, currentFields);
         const boardHandText = result.$("#txtHand").val() as string || "";
         const boardHandData = parseHandRecord(boardHandText);
-        const boardTravellers = parseTravellerTable(result.$);
+        // For IMP, switch to NS sort view for each board
+        let boardPage = result;
+        if (scoringType === "IMP") {
+          const nsSorted = await switchToNsSortView(fullUrl, result.fields, boardNum);
+          boardPage = nsSorted;
+        }
+        const boardTravellers = parseTravellerTable(boardPage.$, scoringType === "IMP" ? "IMP_NS" : undefined);
 
         boards.push({
           ...boardHandData,
@@ -55,7 +71,7 @@ export async function POST(request: NextRequest) {
           comment: null,
         });
 
-        currentFields = result.fields;
+        currentFields = boardPage.fields;
       } catch (err) {
         console.error(`Failed to fetch board ${boardNum}:`, err);
       }
@@ -67,6 +83,7 @@ export async function POST(request: NextRequest) {
       tournamentCode: params.tc,
       eventId: params.id,
       totalBoards: initial.totalBoards,
+      scoringType,
       boards,
     });
   } catch (error) {

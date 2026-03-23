@@ -1,5 +1,5 @@
 import * as cheerio from "cheerio";
-import type { BoardHands, Hand, TravellerRow, Vulnerability } from "@/lib/bridge/types";
+import type { BoardHands, Hand, TravellerRow, Vulnerability, ScoringType } from "@/lib/bridge/types";
 
 const SUIT_IMAGE_MAP: Record<string, string> = {
   "S14.png": "S",
@@ -139,56 +139,167 @@ function expandCards(cards: string): string[] {
   return result;
 }
 
-export function parseTravellerTable($: cheerio.CheerioAPI): TravellerRow[] {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractContract($: cheerio.CheerioAPI, cell: any): string {
+  let contract = "";
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  cell.contents().each((_: number, el: any) => {
+    const node = el as unknown as { type: string; tagName?: string };
+    if (node.type === "text") {
+      contract += $(el).text().trim();
+    } else if (node.type === "tag" && node.tagName === "span") {
+      contract += $(el).text().trim();
+    } else if (node.type === "tag" && node.tagName === "img") {
+      const src = $(el).attr("src") || "";
+      const suit = parseSuitFromImg(src);
+      const suitSymbol: Record<string, string> = { S: "\u2660", H: "\u2665", D: "\u2666", C: "\u2663" };
+      contract += suitSymbol[suit] || suit;
+    }
+  });
+  return contract;
+}
+
+export function detectScoringType($: cheerio.CheerioAPI): ScoringType {
+  const table = $("#tblTrv");
+  if (!table.length) return "MP";
+  const headerRow = table.find("tr").eq(1);
+  const headerText = headerRow.text();
+  if (headerText.includes("IMP")) return "IMP";
+  return "MP";
+}
+
+export function parseTravellerTable($: cheerio.CheerioAPI, scoringType?: ScoringType | "IMP_NS"): TravellerRow[] {
   const rows: TravellerRow[] = [];
   const table = $("#tblTrv");
   if (!table.length) return rows;
 
+  const detectedType = scoringType || detectScoringType($);
   const trs = table.find("tr");
-  // Skip first 2 rows (title + header)
-  trs.each((index, tr) => {
-    if (index < 2) return;
 
-    const cells = $(tr).find("td");
-    if (cells.length < 7) return;
+  if (detectedType === "IMP_NS") {
+    // IMP NS番号順 format: NS | EW | Contract | MD | N-S | E-W | IMP | IMP/T
+    // NS/EW are pair IDs like "A01", "B12"
+    trs.each((index, tr) => {
+      if (index < 2) return;
 
-    // Extract contract with suit image handling
-    const contractCell = cells.eq(2);
-    let contract = "";
-    contractCell.contents().each((_, el) => {
-      const node = el as unknown as { type: string; tagName?: string };
-      if (node.type === "text") {
-        contract += $(el).text().trim();
-      } else if (node.type === "tag" && node.tagName === "span") {
-        contract += $(el).text().trim();
-      } else if (node.type === "tag" && node.tagName === "img") {
-        const src = $(el).attr("src") || "";
-        const suit = parseSuitFromImg(src);
-        const suitSymbol: Record<string, string> = { S: "\u2660", H: "\u2665", D: "\u2666", C: "\u2663" };
-        contract += suitSymbol[suit] || suit;
+      const cells = $(tr).find("td");
+      if (cells.length < 7) return;
+
+      const nsId = cells.eq(0).text().trim(); // e.g. "A01"
+      const ewId = cells.eq(1).text().trim(); // e.g. "A19"
+      const contract = extractContract($, cells.eq(2));
+      const declarer = cells.eq(3).text().trim();
+      const resultText = cells.eq(4).text().trim();
+      const rawResult = parseInt(resultText) || 0;
+      const contractLevel = parseInt(contract.replace(/[^0-9]/g, "")) || 0;
+      const result = rawResult < 0 ? rawResult : (rawResult - contractLevel);
+
+      const nsScoreText = cells.eq(5).text().trim();
+      const ewScoreText = cells.eq(6).text().trim();
+      const nsScore = parseInt(nsScoreText) || 0;
+      const ewScore = parseInt(ewScoreText) || 0;
+
+      const impText = cells.eq(7)?.text().trim() || "0";
+      const imp = parseFloat(impText) || 0;
+
+      const impPerTableText = cells.eq(8)?.text().trim() || "0";
+      const impPerTable = parseFloat(impPerTableText) || 0;
+
+      // Extract numeric part from pair ID for ns/ew fields
+      const nsNum = parseInt(nsId.replace(/[^0-9]/g, "")) || 0;
+      const ewNum = parseInt(ewId.replace(/[^0-9]/g, "")) || 0;
+
+      if (contract) {
+        rows.push({
+          ns: nsNum,
+          ew: ewNum,
+          nsId,
+          ewId,
+          contract,
+          declarer,
+          result,
+          nsScore,
+          ewScore,
+          mp: 0,
+          imp,
+          impPerTable,
+        });
       }
     });
+  } else if (detectedType === "IMP") {
+    // IMP summary format: Contract | Declarer | MD | N-S | E-W | IMP | IMP/T | Tie
+    trs.each((index, tr) => {
+      if (index < 2) return;
 
-    const ns = parseInt(cells.eq(0).text().trim()) || 0;
-    const ew = parseInt(cells.eq(1).text().trim()) || 0;
-    const declarer = cells.eq(3).text().trim();
-    const resultText = cells.eq(4).text().trim();
-    const rawResult = parseInt(resultText) || 0;
-    // rawResult: positive = made level, negative = down tricks
-    // Convert to over/under tricks relative to contract level
-    const contractLevel = parseInt(contract.replace(/[^0-9]/g, "")) || 0;
-    const result = rawResult < 0 ? rawResult : (rawResult - contractLevel);
-    const nsScoreText = cells.eq(5).text().trim();
-    const ewScoreText = cells.eq(6).text().trim();
-    const nsScore = parseInt(nsScoreText) || 0;
-    const ewScore = parseInt(ewScoreText) || 0;
-    const mpText = cells.eq(7)?.text().trim() || "0";
-    const mp = parseFloat(mpText) || 0;
+      const cells = $(tr).find("td");
+      if (cells.length < 6) return;
 
-    if (ns > 0 || ew > 0) {
-      rows.push({ ns, ew, contract, declarer, result, nsScore, ewScore, mp });
-    }
-  });
+      const contract = extractContract($, cells.eq(0));
+      const declarer = cells.eq(1).text().trim();
+      const resultText = cells.eq(2).text().trim();
+      const rawResult = parseInt(resultText) || 0;
+      const contractLevel = parseInt(contract.replace(/[^0-9]/g, "")) || 0;
+      const result = rawResult < 0 ? rawResult : (rawResult - contractLevel);
+
+      const nsScoreText = cells.eq(3).text().trim();
+      const ewScoreText = cells.eq(4).text().trim();
+      const nsScore = parseInt(nsScoreText) || 0;
+      const ewScore = parseInt(ewScoreText) || 0;
+
+      const impText = cells.eq(5)?.text().trim() || "0";
+      const imp = parseFloat(impText) || 0;
+
+      const impPerTableText = cells.eq(6)?.text().trim() || "0";
+      const impPerTable = parseFloat(impPerTableText) || 0;
+
+      const tieText = cells.eq(7)?.text().trim() || "0";
+      const tie = parseInt(tieText) || 0;
+
+      if (contract) {
+        rows.push({
+          ns: 0,
+          ew: 0,
+          contract,
+          declarer,
+          result,
+          nsScore,
+          ewScore,
+          mp: 0,
+          imp,
+          impPerTable,
+          tie,
+        });
+      }
+    });
+  } else {
+    // MP format: NS | EW | Contract | Declarer | MD | N-S | E-W | MP%
+    trs.each((index, tr) => {
+      if (index < 2) return;
+
+      const cells = $(tr).find("td");
+      if (cells.length < 7) return;
+
+      const contract = extractContract($, cells.eq(2));
+
+      const ns = parseInt(cells.eq(0).text().trim()) || 0;
+      const ew = parseInt(cells.eq(1).text().trim()) || 0;
+      const declarer = cells.eq(3).text().trim();
+      const resultText = cells.eq(4).text().trim();
+      const rawResult = parseInt(resultText) || 0;
+      const contractLevel = parseInt(contract.replace(/[^0-9]/g, "")) || 0;
+      const result = rawResult < 0 ? rawResult : (rawResult - contractLevel);
+      const nsScoreText = cells.eq(5).text().trim();
+      const ewScoreText = cells.eq(6).text().trim();
+      const nsScore = parseInt(nsScoreText) || 0;
+      const ewScore = parseInt(ewScoreText) || 0;
+      const mpText = cells.eq(7)?.text().trim() || "0";
+      const mp = parseFloat(mpText) || 0;
+
+      if (ns > 0 || ew > 0) {
+        rows.push({ ns, ew, contract, declarer, result, nsScore, ewScore, mp });
+      }
+    });
+  }
 
   return rows;
 }

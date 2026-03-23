@@ -21,13 +21,20 @@ export interface BoardHands {
 export interface TravellerRow {
   ns: number;
   ew: number;
+  nsId?: string; // For IMP: "A01", "B12" etc
+  ewId?: string;
   contract: string;
   declarer: string;
   result: number;
   nsScore: number;
   ewScore: number;
   mp: number;
+  imp?: number;
+  impPerTable?: number;
+  tie?: number;
 }
+
+export type ScoringType = "MP" | "IMP";
 
 export interface DDSTable {
   N: Record<Denomination, number>;
@@ -77,10 +84,12 @@ export interface TournamentData {
   name: string;
   date: string;
   pairNumber: number;
+  pairId?: string; // For IMP format: "A01", "B02" etc
   partnerName?: string;
   ranking?: string;
   sessionNumber?: string;
   totalBoards: number;
+  scoringType?: ScoringType;
   shareToken?: string;
   ownerUid?: string;
   createdAt?: Date;

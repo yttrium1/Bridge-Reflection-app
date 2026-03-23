@@ -125,10 +125,14 @@ export default function BoardDetailPage() {
   if (!board || !tournament) return null;
 
   const pairNumber = tournament.pairNumber;
-  const myResult = board.travellers.find(
-    (t) => t.ns === pairNumber || t.ew === pairNumber
-  );
-  const isEW = myResult ? myResult.ew === pairNumber : false;
+  const isIMP = tournament.scoringType === "IMP";
+  const pairId = (tournament as TournamentData & { pairId?: string }).pairId;
+  const myResult = isIMP && pairId
+    ? board.travellers.find((t) => t.nsId === pairId || t.ewId === pairId)
+    : board.travellers.find((t) => t.ns === pairNumber || t.ew === pairNumber);
+  const isEW = isIMP && pairId
+    ? myResult?.ewId === pairId
+    : myResult?.ew === pairNumber;
 
   // Navigation
   const prevBoard = parseInt(boardNum) > 1 ? parseInt(boardNum) - 1 : null;
@@ -282,23 +286,41 @@ export default function BoardDetailPage() {
                 );
               })()}
               <div className="text-right">
-                <div className="text-sm text-gray-500">MP%</div>
-                {(() => {
-                  const mp = isEW ? (100 - myResult.mp) : myResult.mp;
-                  return (
-                    <div
-                      className={`text-2xl font-bold ${
-                        mp >= 60
-                          ? "text-blue-600"
-                          : mp <= 40
-                          ? "text-red-600"
-                          : "text-gray-700"
-                      }`}
-                    >
-                      {mp.toFixed(1)}%
-                    </div>
-                  );
-                })()}
+                {isIMP ? (
+                  <>
+                    <div className="text-sm text-gray-500">IMP/T</div>
+                    {(() => {
+                      const impVal = myResult.impPerTable || 0;
+                      // IMP is from NS perspective, flip for EW
+                      const myImp = isEW ? -impVal : impVal;
+                      return (
+                        <div className={`text-2xl font-bold ${myImp > 0 ? "text-blue-600" : myImp < 0 ? "text-red-600" : "text-gray-700"}`}>
+                          {myImp > 0 ? "+" : ""}{myImp.toFixed(2)}
+                        </div>
+                      );
+                    })()}
+                  </>
+                ) : (
+                  <>
+                    <div className="text-sm text-gray-500">MP%</div>
+                    {(() => {
+                      const mp = isEW ? (100 - myResult.mp) : myResult.mp;
+                      return (
+                        <div
+                          className={`text-2xl font-bold ${
+                            mp >= 60
+                              ? "text-blue-600"
+                              : mp <= 40
+                              ? "text-red-600"
+                              : "text-gray-700"
+                          }`}
+                        >
+                          {mp.toFixed(1)}%
+                        </div>
+                      );
+                    })()}
+                  </>
+                )}
               </div>
             </div>
           </div>

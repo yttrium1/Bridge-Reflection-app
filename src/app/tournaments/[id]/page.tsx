@@ -280,17 +280,25 @@ export default function TournamentDetailPage() {
                 <div className="grid gap-2 grid-cols-2 sm:grid-cols-4">
                   {sessionBoards.map((board) => {
                     const boardDocId = (board as BoardData & { _docId?: string })._docId || String(board.boardNumber);
-                    const myResult = board.travellers.find(
-                      (t) => t.ns === sessionPairNumber || t.ew === sessionPairNumber
-                    );
-                    const isNS = myResult?.ns === sessionPairNumber;
+                    const isIMP = tournament.scoringType === "IMP";
+                    const pairId = (tournament as TournamentData & { pairId?: string }).pairId;
+                    const myResult = isIMP && pairId
+                      ? board.travellers.find(
+                          (t) => t.nsId === pairId || t.ewId === pairId
+                        )
+                      : board.travellers.find(
+                          (t) => t.ns === sessionPairNumber || t.ew === sessionPairNumber
+                        );
+                    const isNS = isIMP && pairId
+                      ? myResult?.nsId === pairId
+                      : myResult?.ns === sessionPairNumber;
                     const score = myResult
                       ? isNS
                         ? (myResult.nsScore > 0 ? myResult.nsScore : -myResult.ewScore)
                         : (myResult.ewScore > 0 ? myResult.ewScore : -myResult.nsScore)
                       : null;
                     const rawMp = myResult?.mp;
-                    const mp = rawMp !== undefined ? (isNS ? rawMp : 100 - rawMp) : undefined;
+                    const mp = rawMp !== undefined && !isIMP ? (isNS ? rawMp : 100 - rawMp) : undefined;
                     const resultDisplay = myResult
                       ? myResult.result > 0 ? `+${myResult.result}` : myResult.result === 0 ? "=" : String(myResult.result)
                       : "";
@@ -332,9 +340,14 @@ export default function TournamentDetailPage() {
                               </div>
                             )}
                           </div>
-                          {mp !== undefined && (
+                          {mp !== undefined && !isIMP && (
                             <div className={`text-sm font-bold shrink-0 ${mp >= 60 ? "text-blue-600" : mp <= 40 ? "text-red-600" : "text-gray-500"}`}>
                               {mp.toFixed(0)}%
+                            </div>
+                          )}
+                          {isIMP && myResult?.impPerTable !== undefined && (
+                            <div className={`text-sm font-bold shrink-0 ${myResult.impPerTable > 0 ? "text-blue-600" : myResult.impPerTable < 0 ? "text-red-600" : "text-gray-500"}`}>
+                              {myResult.impPerTable > 0 ? "+" : ""}{myResult.impPerTable.toFixed(2)}
                             </div>
                           )}
                         </div>

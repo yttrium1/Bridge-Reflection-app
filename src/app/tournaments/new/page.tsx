@@ -51,11 +51,13 @@ export default function NewTournamentPage() {
         eventId: data.eventId,
         name: data.tournamentName,
         date: data.tournamentDate,
-        pairNumber: parseInt(pairNumber),
+        pairNumber: parseInt(pairNumber.replace(/[^0-9]/g, "")) || 0,
+        ...(pairNumber.match(/[A-Za-z]/) && { pairId: pairNumber.toUpperCase() }),
         ...(partnerName && { partnerName }),
         ...(ranking && { ranking }),
         ...(sessionNumber && { sessionNumber }),
         totalBoards: data.totalBoards,
+        scoringType: data.scoringType || "MP",
         createdAt: serverTimestamp(),
       });
 
@@ -128,14 +130,14 @@ export default function NewTournamentPage() {
                 自分のペア番号
               </label>
               <input
-                type="number"
+                type="text"
                 value={pairNumber}
                 onChange={(e) => setPairNumber(e.target.value)}
                 required
-                min="1"
-                placeholder="例: 7"
-                className="w-32 px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a5c2e] text-sm"
+                placeholder="例: 7 または A01"
+                className="w-40 px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a5c2e] text-sm"
               />
+              <p className="text-[10px] text-gray-400 mt-1">MP形式: 数字のみ / IMP形式: A01等</p>
             </div>
             <div className="flex-1">
               <label className="block text-sm font-bold text-gray-700 mb-2">

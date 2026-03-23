@@ -72,6 +72,40 @@ export async function fetchInitialPage(url: string): Promise<{
   return { $, fields, totalBoards, tournamentName, tournamentDate };
 }
 
+export async function switchToNsSortView(
+  url: string,
+  fields: ReturnType<typeof extractAspNetFields>,
+  boardNumber: number = 1
+): Promise<{
+  $: cheerio.CheerioAPI;
+  fields: ReturnType<typeof extractAspNetFields>;
+}> {
+  const body = new URLSearchParams({
+    __EVENTTARGET: "rblstSort$0",
+    __EVENTARGUMENT: "",
+    __LASTFOCUS: "",
+    __VIEWSTATE: fields.viewState,
+    __VIEWSTATEGENERATOR: fields.viewStateGenerator,
+    __EVENTVALIDATION: fields.eventValidation,
+    ddlBoardId: String(boardNumber),
+    rblstSort: "SortByNsCompetitorId",
+  });
+
+  const response = await fetchWithRetry(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: body.toString(),
+  });
+
+  const html = await response.text();
+  const $ = cheerio.load(html);
+  const newFields = extractAspNetFields($);
+
+  return { $, fields: newFields };
+}
+
 export async function fetchBoardByPostback(
   url: string,
   boardNumber: number,
