@@ -44,10 +44,14 @@ export default function PlayAnalyzer({ hands, declarer, trump, contract, myDirec
   const [ewTricks, setEwTricks] = useState(0);
   const [showAnalysis, setShowAnalysis] = useState(true);
   const [playHistory, setPlayHistory] = useState<{ card: PlayedCard; wasOptimal: boolean; tricksDiff: number }[]>([]);
+  const [analysisTrigger, setAnalysisTrigger] = useState(0);
 
   const isGameOver = completedTricks.length === 13;
 
-  // Use ref to track fetch version and avoid stale closures
+  // Use ref to store latest state for fetch
+  const stateRef = useRef({ remainingHands, currentTrick, nextPlayer });
+  stateRef.current = { remainingHands, currentTrick, nextPlayer };
+
   const fetchVersion = useRef(0);
 
   useEffect(() => {
@@ -55,6 +59,7 @@ export default function PlayAnalyzer({ hands, declarer, trump, contract, myDirec
 
     fetchVersion.current++;
     const thisVersion = fetchVersion.current;
+    const { remainingHands: rh, currentTrick: ct, nextPlayer: np } = stateRef.current;
 
     const doFetch = async () => {
       setAnalyzing(true);
@@ -62,19 +67,19 @@ export default function PlayAnalyzer({ hands, declarer, trump, contract, myDirec
         const handsForApi: Record<string, Record<string, string[]>> = {};
         for (const dir of ["N", "E", "S", "W"] as Direction[]) {
           handsForApi[dir] = {
-            S: remainingHands[dir].S,
-            H: remainingHands[dir].H,
-            D: remainingHands[dir].D,
-            C: remainingHands[dir].C,
+            S: [...rh[dir].S],
+            H: [...rh[dir].H],
+            D: [...rh[dir].D],
+            C: [...rh[dir].C],
           };
         }
-        const trickCards = currentTrick.map(c => ({ suit: c.suit, rank: c.rank }));
+        const trickCards = ct.map(c => ({ suit: c.suit, rank: c.rank }));
         const res = await fetch("/api/play-analysis", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ hands: handsForApi, currentTrick: trickCards, nextPlayer, trump }),
+          body: JSON.stringify({ hands: handsForApi, currentTrick: trickCards, nextPlayer: np, trump }),
         });
-        if (thisVersion !== fetchVersion.current) return; // stale
+        if (thisVersion !== fetchVersion.current) return;
         if (res.ok) {
           const data = await res.json();
           setAnalysis(data.analysis || []);
@@ -88,7 +93,8 @@ export default function PlayAnalyzer({ hands, declarer, trump, contract, myDirec
     };
 
     doFetch();
-  }, [remainingHands, currentTrick, nextPlayer, trump, showAnalysis, isGameOver]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [analysisTrigger, showAnalysis, isGameOver, trump]);
 
   const getCardHighlight = (suit: string, rank: string): string => {
     if (!showAnalysis || analysis.length === 0) return "";
@@ -125,8 +131,13 @@ export default function PlayAnalyzer({ hands, declarer, trump, contract, myDirec
     const tricksDiff = cardResult ? maxTricks - cardResult.tricks : 0;
     setPlayHistory(prev => [...prev, { card: playedCard, wasOptimal, tricksDiff }]);
 
-    const newHands = { ...remainingHands };
-    newHands[dir] = removeCardFromHand(remainingHands[dir], suit, rank);
+    const newHands: BoardHands = {
+      N: { S: [...remainingHands.N.S], H: [...remainingHands.N.H], D: [...remainingHands.N.D], C: [...remainingHands.N.C] },
+      E: { S: [...remainingHands.E.S], H: [...remainingHands.E.H], D: [...remainingHands.E.D], C: [...remainingHands.E.C] },
+      S: { S: [...remainingHands.S.S], H: [...remainingHands.S.H], D: [...remainingHands.S.D], C: [...remainingHands.S.C] },
+      W: { S: [...remainingHands.W.S], H: [...remainingHands.W.H], D: [...remainingHands.W.D], C: [...remainingHands.W.C] },
+    };
+    newHands[dir] = removeCardFromHand(newHands[dir], suit, rank);
     setRemainingHands(newHands);
 
     const newTrick = [...currentTrick, playedCard];
@@ -142,10 +153,18 @@ export default function PlayAnalyzer({ hands, declarer, trump, contract, myDirec
       setCurrentTrick(newTrick);
       setNextPlayer(getNextPlayer(dir));
     }
+
+    // Trigger analysis on next tick after all state updates
+    setTimeout(() => setAnalysisTrigger(prev => prev + 1), 50);
   };
 
   const resetPlay = () => {
-    setRemainingHands({ ...hands });
+    setRemainingHands({
+      N: { S: [...hands.N.S], H: [...hands.N.H], D: [...hands.N.D], C: [...hands.N.C] },
+      E: { S: [...hands.E.S], H: [...hands.E.H], D: [...hands.E.D], C: [...hands.E.C] },
+      S: { S: [...hands.S.S], H: [...hands.S.H], D: [...hands.S.D], C: [...hands.S.C] },
+      W: { S: [...hands.W.S], H: [...hands.W.H], D: [...hands.W.D], C: [...hands.W.C] },
+    });
     setCompletedTricks([]);
     setCurrentTrick([]);
     setNextPlayer(getLeader(declarer));
@@ -153,6 +172,7 @@ export default function PlayAnalyzer({ hands, declarer, trump, contract, myDirec
     setNsTricks(0);
     setEwTricks(0);
     setPlayHistory([]);
+    setTimeout(() => setAnalysisTrigger(prev => prev + 1), 50);
   };
 
   const undoLastPlay = () => {
@@ -192,6 +212,7 @@ export default function PlayAnalyzer({ hands, declarer, trump, contract, myDirec
     setNsTricks(tempNs);
     setEwTricks(tempEw);
     setPlayHistory(historyWithoutLast);
+    setTimeout(() => setAnalysisTrigger(prev => prev + 1), 50);
   };
 
   const suboptimalPlays = playHistory.filter(h => !h.wasOptimal).length;

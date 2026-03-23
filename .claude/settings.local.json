@@ -51,7 +51,8 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3001)",
       "Bash(kill -9 28081 39874 40777 41008 41150 41184)",
       "Bash(ps -p 6843 -o comm=)",
-      "Bash(find /Users/yttrium/Desktop/projects/bridge_reflection -name *dds* -type f)"
+      "Bash(find /Users/yttrium/Desktop/projects/bridge_reflection -name *dds* -type f)",
+      "Bash(node play-analysis-calc.js)"
     ]
   }
 }
