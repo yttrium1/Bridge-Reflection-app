@@ -12,6 +12,23 @@ function handsToStringFormat(hand: Record<string, string[]>): string {
   }).join(".");
 }
 
+async function solveSingle(hands: Record<string, string>, declarer: string, trump: string): Promise<number> {
+  const input = JSON.stringify({ hands, declarer, trump });
+  const escaped = input.replace(/'/g, "'\\''");
+  const { stdout, stderr } = await execAsync(
+    `echo '${escaped}' | node dds-calc.js`,
+    { timeout: 30000, cwd: process.cwd() }
+  );
+  if (stderr) {
+    console.warn(`DDS warning for ${declarer}-${trump}:`, stderr);
+  }
+  const tricks = parseInt(stdout.trim());
+  if (isNaN(tricks) || tricks < 0 || tricks > 13) {
+    throw new Error(`Invalid DDS result for ${declarer}-${trump}: "${stdout.trim()}"`);
+  }
+  return tricks;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { hands } = await request.json();
@@ -33,19 +50,24 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Single process: compute full 20-cell DDA table
-    const input = JSON.stringify({ hands: handStrings, mode: "full" });
-    const escaped = input.replace(/'/g, "'\\''");
-    const { stdout, stderr } = await execAsync(
-      `echo '${escaped}' | node dds-calc.js`,
-      { timeout: 60000, cwd: process.cwd() }
-    );
+    const denominations = ["C", "D", "H", "S", "NT"];
+    const result: Record<string, Record<string, number>> = {
+      N: {}, E: {}, S: {}, W: {},
+    };
 
-    if (stderr) {
-      console.warn("DDS stderr:", stderr);
+    // Run all 20 calculations in parallel (separate processes to avoid WASM state contamination)
+    const tasks: Promise<void>[] = [];
+    for (const denom of denominations) {
+      for (const declarer of directions) {
+        tasks.push(
+          solveSingle(handStrings, declarer, denom).then(tricks => {
+            result[declarer][denom] = tricks;
+          })
+        );
+      }
     }
+    await Promise.all(tasks);
 
-    const result = JSON.parse(stdout.trim());
     return NextResponse.json(result);
   } catch (error) {
     console.error("DDS error:", error);

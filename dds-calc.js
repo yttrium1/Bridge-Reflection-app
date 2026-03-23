@@ -1,38 +1,27 @@
-// DDS calculator - computes full 20-cell DDA table in a single process
+// DDS calculator - single calculation per process to avoid WASM state contamination
 const { doubleDummySolveTricks } = require("@bridge-tools/dd");
 const { StringParser } = require("@bridge-tools/core");
-
-const LHO = { N: "E", E: "S", S: "W", W: "N" };
 
 let input = "";
 process.stdin.on("data", (chunk) => { input += chunk; });
 process.stdin.on("end", async () => {
   try {
-    const { hands, mode, dir, trump } = JSON.parse(input);
+    const { hands, declarer, trump } = JSON.parse(input);
     const deal = {};
     for (const d of ["N", "E", "S", "W"]) {
       deal[d] = StringParser.parseHand(hands[d]);
     }
 
-    if (mode === "full") {
-      // Full DDA table: 4 declarers × 5 denominations = 20 calculations
-      const denoms = ["C", "D", "H", "S", "NT"];
-      const result = { N: {}, E: {}, S: {}, W: {} };
+    // Leader is the LHO of the declarer
+    const LHO = { N: "E", E: "S", S: "W", W: "N" };
+    const leader = LHO[declarer];
 
-      for (const denom of denoms) {
-        for (const declarer of ["N", "E", "S", "W"]) {
-          const leader = LHO[declarer];
-          const leaderTricks = await doubleDummySolveTricks(deal, [], leader, denom);
-          result[declarer][denom] = 13 - leaderTricks;
-        }
-      }
+    // Returns tricks for the leader's side
+    const leaderTricks = await doubleDummySolveTricks(deal, [], leader, trump);
+    // Declarer's tricks = 13 - leader's side tricks
+    const declarerTricks = 13 - leaderTricks;
 
-      process.stdout.write(JSON.stringify(result));
-    } else {
-      // Single calculation (for best lead etc.)
-      const tricks = await doubleDummySolveTricks(deal, [], dir, trump);
-      process.stdout.write(String(tricks));
-    }
+    process.stdout.write(String(declarerTricks));
   } catch (err) {
     process.stderr.write(String(err.message || err));
     process.exit(1);
