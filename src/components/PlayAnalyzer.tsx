@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { BoardHands, Direction, Hand } from "@/lib/bridge/types";
 import {
   PlayedCard,
@@ -47,50 +47,48 @@ export default function PlayAnalyzer({ hands, declarer, trump, contract, myDirec
 
   const isGameOver = completedTricks.length === 13;
 
-  const fetchAnalysis = useCallback(async () => {
-    if (isGameOver) return;
-    setAnalyzing(true);
-    try {
-      const handsForApi: Record<string, Record<string, string[]>> = {};
-      for (const dir of ["N", "E", "S", "W"] as Direction[]) {
-        handsForApi[dir] = {
-          S: remainingHands[dir].S,
-          H: remainingHands[dir].H,
-          D: remainingHands[dir].D,
-          C: remainingHands[dir].C,
-        };
-      }
-      const trickCards = currentTrick.map(c => ({ suit: c.suit, rank: c.rank }));
-      const res = await fetch("/api/play-analysis", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ hands: handsForApi, currentTrick: trickCards, nextPlayer, trump }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setAnalysis(data.analysis || []);
-      } else {
-        setAnalysis([]);
-      }
-    } catch {
-      setAnalysis([]);
-    }
-    setAnalyzing(false);
-  }, [remainingHands, currentTrick, nextPlayer, trump, isGameOver]);
-
-  // Track state changes to trigger analysis - use a key that changes when position changes
-  const positionKey = JSON.stringify({
-    hands: Object.fromEntries(["N","E","S","W"].map(d => [d, remainingHands[d as Direction]])),
-    trick: currentTrick.map(c => `${c.player}${c.suit}${c.rank}`),
-    next: nextPlayer,
-  });
+  // Use ref to track fetch version and avoid stale closures
+  const fetchVersion = useRef(0);
 
   useEffect(() => {
-    if (showAnalysis && !isGameOver) {
-      fetchAnalysis();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [positionKey, showAnalysis, isGameOver]);
+    if (!showAnalysis || isGameOver) return;
+
+    fetchVersion.current++;
+    const thisVersion = fetchVersion.current;
+
+    const doFetch = async () => {
+      setAnalyzing(true);
+      try {
+        const handsForApi: Record<string, Record<string, string[]>> = {};
+        for (const dir of ["N", "E", "S", "W"] as Direction[]) {
+          handsForApi[dir] = {
+            S: remainingHands[dir].S,
+            H: remainingHands[dir].H,
+            D: remainingHands[dir].D,
+            C: remainingHands[dir].C,
+          };
+        }
+        const trickCards = currentTrick.map(c => ({ suit: c.suit, rank: c.rank }));
+        const res = await fetch("/api/play-analysis", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ hands: handsForApi, currentTrick: trickCards, nextPlayer, trump }),
+        });
+        if (thisVersion !== fetchVersion.current) return; // stale
+        if (res.ok) {
+          const data = await res.json();
+          setAnalysis(data.analysis || []);
+        } else {
+          setAnalysis([]);
+        }
+      } catch {
+        if (thisVersion === fetchVersion.current) setAnalysis([]);
+      }
+      if (thisVersion === fetchVersion.current) setAnalyzing(false);
+    };
+
+    doFetch();
+  }, [remainingHands, currentTrick, nextPlayer, trump, showAnalysis, isGameOver]);
 
   const getCardHighlight = (suit: string, rank: string): string => {
     if (!showAnalysis || analysis.length === 0) return "";
@@ -211,7 +209,7 @@ export default function PlayAnalyzer({ hands, declarer, trump, contract, myDirec
 
     return (
       <div className="leading-snug">
-        <div className={`font-bold text-xs mb-0.5 ${isMyDir(dir) ? "text-blue-600 underline" : "text-gray-400"}`}>
+        <div className={`font-bold text-xs mb-0.5 ${isMyDir(dir) ? "text-blue-600" : "text-gray-400"}`}>
           {dir === "N" ? "North" : dir === "S" ? "South" : dir === "E" ? "East" : "West"}
           {isActive && <span className="ml-1 text-green-600 animate-pulse">◀</span>}
         </div>
@@ -285,10 +283,15 @@ export default function PlayAnalyzer({ hands, declarer, trump, contract, myDirec
         {/* Top-left: contract info */}
         <div className="col-start-1 row-start-1 flex flex-col justify-center">
           {contract && (
-            <div className="text-lg font-bold text-[#1a5c2e] mb-1">{contract}</div>
+            <div className="text-lg font-bold text-gray-800 mb-1" dangerouslySetInnerHTML={{
+              __html: contract
+                .replace(/♠/g, '<span class="text-blue-900">♠</span>')
+                .replace(/♥/g, '<span class="text-red-600">♥</span>')
+                .replace(/♦/g, '<span class="text-orange-500">♦</span>')
+                .replace(/♣/g, '<span class="text-green-700">♣</span>')
+            }} />
           )}
           <div className="text-xs text-gray-500 leading-relaxed">
-            <div>by <strong>{declarer}</strong></div>
             <div>Trump: <strong>{trumpDisplay}</strong></div>
           </div>
         </div>

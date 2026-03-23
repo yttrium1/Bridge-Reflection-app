@@ -62,7 +62,7 @@ export default function HandDiagram({
     const vul = isVulDirection(d, vulnerability);
     const mine = isMyDir(d);
     return (
-      <span className={`${vul ? "text-red-600" : "text-[#1a5c2e]"} ${mine ? "underline decoration-2 underline-offset-2 decoration-yellow-500" : ""}`}>
+      <span className={`${vul ? "text-red-600" : "text-[#1a5c2e]"} ${mine ? "font-black" : ""}`}>
         {d}
       </span>
     );
