@@ -269,8 +269,8 @@ export default function BoardDetailPage() {
                 // Label based on perspective
                 const perspectiveLabel = diff === 0 ? "DD通り"
                   : declIsMyPair
-                    ? (diff > 0 ? "DD超え" : "DD未達")
-                    : (diff < 0 ? "守備成功" : "守備失敗");
+                    ? (diff > 0 ? "プレイ成功" : "プレイ失敗")
+                    : (diff < 0 ? "ディフェンス成功" : "ディフェンス失敗");
                 return (
                   <div className="text-right">
                     <div className="text-sm text-gray-500">DD予測</div>
