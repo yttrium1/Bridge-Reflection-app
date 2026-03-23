@@ -1,6 +1,20 @@
 // Play Analysis calculator - analyzes optimal cards for current position
 const { doubleDummySolve } = require("@bridge-tools/dd");
-const { StringParser } = require("@bridge-tools/core");
+
+// Parse hand string like "AKQ.JT9.876.5432" into Card array
+// Handles partial hands (fewer than 13 cards after tricks played)
+function parseHandToCards(handStr) {
+  const suits = ["S", "H", "D", "C"];
+  const parts = handStr.split(".");
+  const cards = [];
+  for (let i = 0; i < 4; i++) {
+    const suitStr = parts[i] || "";
+    for (const ch of suitStr) {
+      cards.push({ suit: suits[i], rank: ch });
+    }
+  }
+  return cards;
+}
 
 let input = "";
 process.stdin.on("data", (chunk) => { input += chunk; });
@@ -8,10 +22,10 @@ process.stdin.on("end", async () => {
   try {
     const { hands, currentTrick, nextPlayer, trump } = JSON.parse(input);
 
-    // Parse hands (remaining cards for each player)
+    // Parse hands (remaining cards - may be fewer than 13)
     const deal = {};
     for (const d of ["N", "E", "S", "W"]) {
-      deal[d] = StringParser.parseHand(hands[d]);
+      deal[d] = parseHandToCards(hands[d]);
     }
 
     // Parse current trick cards
