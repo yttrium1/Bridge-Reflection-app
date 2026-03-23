@@ -112,7 +112,7 @@ export default function NewTournamentPage() {
               大会結果URL（fitsys.jp）
             </label>
             <input
-              type="url"
+              type="text"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               required
