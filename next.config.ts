@@ -3,9 +3,9 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   serverExternalPackages: ["@bridge-tools/dd", "@bridge-tools/core"],
   outputFileTracingIncludes: {
-    "/api/dds": ["./node_modules/@bridge-tools/**/*"],
-    "/api/best-lead": ["./node_modules/@bridge-tools/**/*"],
-    "/api/play-analysis": ["./node_modules/@bridge-tools/**/*"],
+    "/api/dds": ["./dds-worker.js", "./node_modules/@bridge-tools/**/*"],
+    "/api/best-lead": ["./dds-worker.js", "./node_modules/@bridge-tools/**/*"],
+    "/api/play-analysis": ["./dds-worker.js", "./node_modules/@bridge-tools/**/*"],
   },
 };
 

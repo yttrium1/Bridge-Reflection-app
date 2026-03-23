@@ -1,22 +1,14 @@
-// Inline DDS solver - no child_process, works in Cloud Run / serverless
+// DDS solver using Worker Threads - works in Cloud Run / serverless
+// Each calculation runs in an isolated Worker to avoid WASM state contamination
+import { Worker } from "worker_threads";
+import path from "path";
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
-const { doubleDummySolve, doubleDummySolveTricks } = require("@bridge-tools/dd");
-const { StringParser } = require("@bridge-tools/core");
 
 type Compass = "N" | "E" | "S" | "W";
 type SuitOrNT = "S" | "H" | "D" | "C" | "NT";
 
 const LHO: Record<string, string> = { N: "E", E: "S", S: "W", W: "N" };
-
-interface Card {
-  suit: string;
-  rank: string;
-}
-
-interface DDSResult {
-  card: Card;
-  result: number;
-}
 
 function handsToStringFormat(hand: Record<string, string[]>): string {
   const suits = ["S", "H", "D", "C"];
@@ -26,22 +18,26 @@ function handsToStringFormat(hand: Record<string, string[]>): string {
   }).join(".");
 }
 
-function parseHandToCards(handStr: string): Card[] {
-  const suits = ["S", "H", "D", "C"];
-  const parts = handStr.split(".");
-  const cards: Card[] = [];
-  for (let i = 0; i < 4; i++) {
-    const suitStr = parts[i] || "";
-    for (const ch of suitStr) {
-      cards.push({ suit: suits[i], rank: ch });
-    }
-  }
-  return cards;
+function getWorkerPath(): string {
+  // In development: use project root
+  // In production (Cloud Run): use relative to cwd
+  return path.resolve(process.cwd(), "dds-worker.js");
+}
+
+function runInWorker(data: any): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(getWorkerPath(), { workerData: data });
+    worker.on("message", resolve);
+    worker.on("error", reject);
+    worker.on("exit", (code) => {
+      if (code !== 0) reject(new Error(`Worker exited with code ${code}`));
+    });
+  });
 }
 
 /**
  * Full DDS table: 4 directions x 5 denominations = 20 calculations
- * Each done sequentially to avoid WASM state issues
+ * Each runs in separate Worker Thread for WASM isolation
  */
 export async function computeDDSTable(
   hands: Record<string, Record<string, string[]>>
@@ -66,18 +62,24 @@ export async function computeDDSTable(
     N: {}, E: {}, S: {}, W: {},
   };
 
-  // Sequential to avoid WASM contamination
+  // Run all 20 in parallel, each in its own Worker
+  const tasks: Promise<void>[] = [];
   for (const denom of denominations) {
     for (const declarer of directions) {
-      const deal: any = {};
-      for (const d of directions) {
-        deal[d] = StringParser.parseHand(handStrings[d]);
-      }
-      const leader = LHO[declarer] as Compass;
-      const leaderTricks = await doubleDummySolveTricks(deal, [], leader, denom);
-      result[declarer][denom] = 13 - leaderTricks;
+      const leader = LHO[declarer];
+      tasks.push(
+        runInWorker({
+          mode: "solveTricks",
+          hands: handStrings,
+          leader,
+          trump: denom,
+        }).then((leaderTricks: number) => {
+          result[declarer][denom] = 13 - leaderTricks;
+        })
+      );
     }
   }
+  await Promise.all(tasks);
 
   return result;
 }
@@ -100,17 +102,18 @@ export async function computeBestLead(
     handStrings[dir] = handsToStringFormat(hands[dir]);
   }
 
-  const deal: any = {};
-  for (const d of directions) {
-    deal[d] = StringParser.parseHand(handStrings[d]);
-  }
-
   const leader = LHO[declarer];
-  const results: DDSResult[] = await doubleDummySolve(deal, [], leader, trump);
-  const maxTricks = Math.max(...results.map((r: DDSResult) => r.result));
+  const results = await runInWorker({
+    mode: "solve",
+    hands: handStrings,
+    leader,
+    trump,
+  });
+
+  const maxTricks = Math.max(...results.map((r: any) => r.result));
   const bestLeads = results
-    .filter((r: DDSResult) => r.result === maxTricks)
-    .map((r: DDSResult) => ({
+    .filter((r: any) => r.result === maxTricks)
+    .map((r: any) => ({
       card: r.card.suit + r.card.rank,
       suit: r.card.suit,
       rank: r.card.rank === "T" ? "10" : r.card.rank,
@@ -138,20 +141,21 @@ export async function computePlayAnalysis(
     handStrings[dir] = handsToStringFormat(hands[dir]);
   }
 
-  // Use custom parser for partial hands
-  const deal: any = {};
-  for (const d of directions) {
-    deal[d] = parseHandToCards(handStrings[d]);
-  }
-
   const trick = (currentTrick || []).map(c => ({
     suit: c.suit,
     rank: c.rank === "10" ? "T" : c.rank,
   }));
 
-  const results: DDSResult[] = await doubleDummySolve(deal, trick, nextPlayer, trump);
+  const results = await runInWorker({
+    mode: "solve",
+    hands: handStrings,
+    leader: nextPlayer,
+    trump,
+    trick,
+    partial: true, // use custom parser for < 13 cards
+  });
 
-  const analysis = results.map((r: DDSResult) => ({
+  const analysis = results.map((r: any) => ({
     suit: r.card.suit,
     rank: r.card.rank === "T" ? "10" : r.card.rank,
     tricks: r.result,
@@ -161,7 +165,7 @@ export async function computePlayAnalysis(
   const rankOrder: Record<string, number> = {
     A: 0, K: 1, Q: 2, J: 3, "10": 4, T: 4, "9": 5, "8": 6, "7": 7, "6": 8, "5": 9, "4": 10, "3": 11, "2": 12,
   };
-  analysis.sort((a, b) => {
+  analysis.sort((a: any, b: any) => {
     if (b.tricks !== a.tricks) return b.tricks - a.tricks;
     if (suitOrder[a.suit] !== suitOrder[b.suit]) return suitOrder[a.suit] - suitOrder[b.suit];
     return rankOrder[a.rank] - rankOrder[b.rank];
