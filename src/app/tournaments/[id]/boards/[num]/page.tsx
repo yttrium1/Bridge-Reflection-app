@@ -14,6 +14,8 @@ import BiddingBox, { type BiddingEntry } from "@/components/BiddingBox";
 import CommentEditor from "@/components/CommentEditor";
 import { useDDS } from "@/hooks/useDDS";
 import BestLead from "@/components/BestLead";
+import PlayAnalyzer from "@/components/PlayAnalyzer";
+import { contractToTrump } from "@/lib/bridge/play-utils";
 
 export default function BoardDetailPage() {
   const { user, loading: authLoading } = useAuth();
@@ -324,6 +326,16 @@ export default function BoardDetailPage() {
             onCommentChange={saveComment}
           />
         </div>
+
+        {/* Play Analysis */}
+        {myResult && myResult.contract && myResult.declarer && (
+          <PlayAnalyzer
+            hands={board.hands}
+            declarer={myResult.declarer as "N" | "E" | "S" | "W"}
+            trump={contractToTrump(myResult.contract)}
+            myDirections={isEW ? ["E", "W"] : ["N", "S"]}
+          />
+        )}
 
         {/* Edit History */}
         {board.editHistory && board.editHistory.length > 0 && (
