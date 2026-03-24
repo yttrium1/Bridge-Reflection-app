@@ -26,8 +26,8 @@ function handsToStringFormat(hand: Record<string, string[]>): string {
   }).join(".");
 }
 
-function findCliPath(): string {
-  const cliFile = "dds-worker-cli.js";
+function findCliPath(file: string = "dds-single-calc.js"): string {
+  const cliFile = file;
   const candidates = [
     path.resolve(process.cwd(), cliFile),
     path.resolve(process.cwd(), "..", cliFile),
@@ -42,8 +42,8 @@ function findCliPath(): string {
   return path.resolve(process.cwd(), cliFile);
 }
 
-function runCli(data: any): Promise<any> {
-  const cliPath = findCliPath();
+function runCli(data: any, file?: string): Promise<any> {
+  const cliPath = findCliPath(file);
   return new Promise((resolve, reject) => {
     const child = spawn("node", [cliPath], {
       stdio: ["pipe", "pipe", "pipe"],
@@ -78,12 +78,13 @@ function runCli(data: any): Promise<any> {
 
 /**
  * Full DDS table: 4 directions x 5 denominations = 20 calculations
- * All computed in a single child process with cache clearing between calls
+ * Each cell runs in a separate child process for WASM isolation
  */
 export async function computeDDSTable(
   hands: Record<string, Record<string, string[]>>
 ): Promise<Record<string, Record<string, number>>> {
   const directions: Compass[] = ["N", "E", "S", "W"];
+  const denominations = ["C", "D", "H", "S", "NT"] as const;
 
   const handStrings: Record<string, string> = {};
   for (const dir of directions) {
@@ -98,16 +99,29 @@ export async function computeDDSTable(
     }
   }
 
-  try {
-    const response = await runCli({
-      mode: "fullTable",
-      hands: handStrings,
-    });
-    return response.result;
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    throw new Error(`DDS failed [hands: ${JSON.stringify(handStrings)}]: ${msg}`);
+  const result: Record<string, Record<string, number>> = {
+    N: {}, E: {}, S: {}, W: {},
+  };
+
+  // Sequential: 1 process per cell to avoid WASM state contamination
+  for (const denom of denominations) {
+    for (const declarer of directions) {
+      const leader = LHO[declarer];
+      try {
+        const leaderTricks = await runCli({
+          hands: handStrings,
+          leader,
+          trump: denom,
+        });
+        result[declarer][denom] = 13 - leaderTricks;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        throw new Error(`DDS failed [${declarer}-${denom}, hands: ${JSON.stringify(handStrings)}]: ${msg}`);
+      }
+    }
   }
+
+  return result;
 }
 
 /**
@@ -134,7 +148,7 @@ export async function computeBestLead(
     hands: handStrings,
     leader,
     trump,
-  });
+  }, "dds-single-calc.js");
 
   const maxTricks = Math.max(...results.map((r: any) => r.result));
   const bestLeads = results
@@ -179,7 +193,7 @@ export async function computePlayAnalysis(
     trump,
     trick,
     partial: true,
-  });
+  }, "dds-single-calc.js");
 
   const analysis = results.map((r: any) => ({
     suit: r.card.suit,
