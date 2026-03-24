@@ -291,8 +291,8 @@ export default function TournamentDetailPage() {
               if (isIMP && myResult.impPerTable !== undefined) {
                 sessionScores.push(myResult.impPerTable);
               } else if (!isIMP && myResult.mp !== undefined) {
-                // fitsys.jp MP% is from EW perspective
-                sessionScores.push(isNS ? (100 - myResult.mp) : myResult.mp);
+                // MP% is NS perspective (calculated or from data)
+                sessionScores.push(isNS ? myResult.mp : (100 - myResult.mp));
               }
             }
             const avgScore = sessionScores.length > 0
@@ -344,8 +344,8 @@ export default function TournamentDetailPage() {
                         : (myResult.ewScore > 0 ? myResult.ewScore : -myResult.nsScore)
                       : null;
                     const rawMp = myResult?.mp;
-                    // fitsys.jp MP% is from EW perspective
-                    const mp = rawMp !== undefined && !isIMP ? (isNS ? (100 - rawMp) : rawMp) : undefined;
+                    // MP% is NS perspective; invert for EW
+                    const mp = rawMp !== undefined && !isIMP ? (isNS ? rawMp : (100 - rawMp)) : undefined;
                     const resultDisplay = myResult
                       ? myResult.result > 0 ? `+${myResult.result}` : myResult.result === 0 ? "=" : String(myResult.result)
                       : "";

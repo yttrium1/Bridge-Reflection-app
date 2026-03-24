@@ -301,5 +301,28 @@ export function parseTravellerTable($: cheerio.CheerioAPI, scoringType?: Scoring
     });
   }
 
+  // If all MP% values are 0, calculate MP% from NS scores
+  const allMpZero = rows.length > 1 && rows.every(r => r.mp === 0);
+  if (allMpZero) {
+    // Calculate matchpoints from NS perspective
+    // Each pair gets 2 points for a win, 1 for a tie, 0 for a loss
+    const validRows = rows.filter(r => r.nsScore !== 0 || r.ewScore !== 0 || r.contract);
+    for (let i = 0; i < validRows.length; i++) {
+      const myNsScore = validRows[i].nsScore > 0 ? validRows[i].nsScore : -validRows[i].ewScore;
+      let matchPoints = 0;
+      let comparisons = 0;
+      for (let j = 0; j < validRows.length; j++) {
+        if (i === j) continue;
+        const otherNsScore = validRows[j].nsScore > 0 ? validRows[j].nsScore : -validRows[j].ewScore;
+        comparisons++;
+        if (myNsScore > otherNsScore) matchPoints += 2;
+        else if (myNsScore === otherNsScore) matchPoints += 1;
+      }
+      if (comparisons > 0) {
+        validRows[i].mp = (matchPoints / (2 * comparisons)) * 100;
+      }
+    }
+  }
+
   return rows;
 }

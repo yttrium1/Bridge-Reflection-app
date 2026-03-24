@@ -317,8 +317,8 @@ export default function BoardDetailPage() {
                   <>
                     <div className="text-sm text-gray-500">MP%</div>
                     {(() => {
-                      // fitsys.jp MP% is from EW perspective, flip for NS
-                      const mp = isEW ? myResult.mp : (100 - myResult.mp);
+                      // MP% is NS perspective (calculated from scores)
+                      const mp = isEW ? (100 - myResult.mp) : myResult.mp;
                       return (
                         <div
                           className={`text-2xl font-bold ${
