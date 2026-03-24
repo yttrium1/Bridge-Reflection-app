@@ -31,8 +31,8 @@ export default function RegisterPage() {
     try {
       await signUp(email, password);
       router.push("/tournaments");
-    } catch {
-      setError("登録に失敗しました。メールアドレスが既に使われている可能性があります。");
+    } catch (err) {
+      setError(err instanceof Error && err.message.includes("許可されていません") ? err.message : "登録に失敗しました。メールアドレスが既に使われている可能性があります。");
     } finally {
       setLoading(false);
     }

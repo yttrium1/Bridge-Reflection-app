@@ -10,7 +10,8 @@ import {
   GoogleAuthProvider,
   signInWithPopup,
 } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
+import { doc, getDoc } from "firebase/firestore";
 
 interface AuthContextType {
   user: User | null;
@@ -19,6 +20,20 @@ interface AuthContextType {
   signUp: (email: string, password: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
+}
+
+const NOT_ALLOWED_ERROR = "このメールアドレスは登録が許可されていません。管理者にお問い合わせください。";
+
+async function checkAllowed(email: string | null): Promise<boolean> {
+  if (!email) return false;
+  try {
+    const snap = await getDoc(doc(db, "config", "access"));
+    if (!snap.exists()) return true; // no config = allow all
+    const allowedEmails: string[] = snap.data().allowedEmails || [];
+    return allowedEmails.map(e => e.toLowerCase()).includes(email.toLowerCase());
+  } catch {
+    return true; // on error, allow (don't lock out)
+  }
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -36,16 +51,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    await signInWithEmailAndPassword(auth, email, password);
+    const cred = await signInWithEmailAndPassword(auth, email, password);
+    const allowed = await checkAllowed(cred.user.email);
+    if (!allowed) {
+      await firebaseSignOut(auth);
+      throw new Error(NOT_ALLOWED_ERROR);
+    }
   };
 
   const signUp = async (email: string, password: string) => {
+    const allowed = await checkAllowed(email);
+    if (!allowed) {
+      throw new Error(NOT_ALLOWED_ERROR);
+    }
     await createUserWithEmailAndPassword(auth, email, password);
   };
 
   const signInWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
-    await signInWithPopup(auth, provider);
+    const cred = await signInWithPopup(auth, provider);
+    const allowed = await checkAllowed(cred.user.email);
+    if (!allowed) {
+      await firebaseSignOut(auth);
+      throw new Error(NOT_ALLOWED_ERROR);
+    }
   };
 
   const signOut = async () => {

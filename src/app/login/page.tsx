@@ -20,8 +20,8 @@ export default function LoginPage() {
     try {
       await signIn(email, password);
       router.push("/tournaments");
-    } catch {
-      setError("メールアドレスまたはパスワードが正しくありません");
+    } catch (err) {
+      setError(err instanceof Error && err.message.includes("許可されていません") ? err.message : "メールアドレスまたはパスワードが正しくありません");
     } finally {
       setLoading(false);
     }
@@ -93,8 +93,8 @@ export default function LoginPage() {
               try {
                 await signInWithGoogle();
                 router.push("/tournaments");
-              } catch {
-                setError("Googleログインに失敗しました");
+              } catch (err) {
+                setError(err instanceof Error && err.message.includes("許可されていません") ? err.message : "Googleログインに失敗しました");
               }
             }}
             className="w-full py-2.5 border border-gray-300 rounded-lg font-bold text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
