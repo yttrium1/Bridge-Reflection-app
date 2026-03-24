@@ -50,11 +50,10 @@ async function run() {
       for (const decl of directions) {
         clearBridgeToolsCache();
         const { doubleDummySolveTricks } = require("@bridge-tools/dd");
-        const { StringParser } = require("@bridge-tools/core");
 
         const deal = {};
         for (const d of directions) {
-          deal[d] = StringParser.parseHand(hands[d]);
+          deal[d] = parseHandToCards(hands[d]);
         }
         const leaderDir = LHO[decl];
         const leaderTricks = await doubleDummySolveTricks(deal, [], leaderDir, denom);
@@ -65,25 +64,19 @@ async function run() {
     process.stdout.write(JSON.stringify({ type: "fullTable", result }));
   } else if (mode === "solveTricks") {
     const { doubleDummySolveTricks } = require("@bridge-tools/dd");
-    const { StringParser } = require("@bridge-tools/core");
 
     const deal = {};
     for (const d of ["N", "E", "S", "W"]) {
-      deal[d] = StringParser.parseHand(hands[d]);
+      deal[d] = parseHandToCards(hands[d]);
     }
     const result = await doubleDummySolveTricks(deal, [], leader, trump);
     process.stdout.write(JSON.stringify(result));
   } else if (mode === "solve") {
     const { doubleDummySolve } = require("@bridge-tools/dd");
-    const { StringParser } = require("@bridge-tools/core");
 
     const deal = {};
     for (const d of ["N", "E", "S", "W"]) {
-      if (partial) {
-        deal[d] = parseHandToCards(hands[d]);
-      } else {
-        deal[d] = StringParser.parseHand(hands[d]);
-      }
+      deal[d] = parseHandToCards(hands[d]);
     }
     const trickCards = trick || [];
     const results = await doubleDummySolve(deal, trickCards, leader, trump);
