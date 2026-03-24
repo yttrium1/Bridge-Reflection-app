@@ -145,12 +145,15 @@ export default function BoardDetailPage() {
     ? myResult?.ewId === pairId
     : myResult?.ew === pairNumber;
 
-  // Navigation
-  const prevBoard = parseInt(boardNum) > 1 ? parseInt(boardNum) - 1 : null;
-  const nextBoard =
-    parseInt(boardNum) < tournament.totalBoards
-      ? parseInt(boardNum) + 1
-      : null;
+  // Navigation: handle both "7" (session 1) and "s2-7" (session 2+) formats
+  const sessionMatch = boardNum.match(/^s(\d+)-(\d+)$/);
+  const sessionPrefix = sessionMatch ? `s${sessionMatch[1]}-` : "";
+  const currentNum = sessionMatch ? parseInt(sessionMatch[2]) : parseInt(boardNum);
+  const sessionTotal = sessionMatch
+    ? (tournament.sessions?.find(s => s.sessionNumber === sessionMatch[1])?.totalBoards ?? tournament.totalBoards)
+    : tournament.totalBoards;
+  const prevBoard = currentNum > 1 ? `${sessionPrefix}${currentNum - 1}` : null;
+  const nextBoard = currentNum < sessionTotal ? `${sessionPrefix}${currentNum + 1}` : null;
 
   return (
     <div className="min-h-screen bg-[#f0f4f1]">
@@ -164,7 +167,7 @@ export default function BoardDetailPage() {
               &larr;
             </Link>
             <div>
-              <h1 className="text-lg font-bold">Board {boardNum}</h1>
+              <h1 className="text-lg font-bold">Board {currentNum}{sessionMatch ? ` (S${sessionMatch[1]})` : ""}</h1>
               <p className="text-xs text-green-200">{tournament.name}</p>
             </div>
           </div>
@@ -180,7 +183,7 @@ export default function BoardDetailPage() {
                 href={`/tournaments/${tournamentId}/boards/${prevBoard}`}
                 className="px-3 py-1 text-xs rounded bg-white/10 hover:bg-white/20"
               >
-                &larr; Board {prevBoard}
+                &larr; Board {currentNum - 1}
               </Link>
             )}
             {nextBoard && (
@@ -188,7 +191,7 @@ export default function BoardDetailPage() {
                 href={`/tournaments/${tournamentId}/boards/${nextBoard}`}
                 className="px-3 py-1 text-xs rounded bg-white/10 hover:bg-white/20"
               >
-                Board {nextBoard} &rarr;
+                Board {currentNum + 1} &rarr;
               </Link>
             )}
           </div>
@@ -398,6 +401,36 @@ export default function BoardDetailPage() {
 
         {/* Traveller Table */}
         <TravellerTable travellers={board.travellers} pairNumber={pairNumber} isEW={isEW} scoringType={tournament.scoringType} />
+
+        {/* Bottom Navigation */}
+        <div className="flex justify-between items-center pt-4 pb-2">
+          {prevBoard ? (
+            <Link
+              href={`/tournaments/${tournamentId}/boards/${prevBoard}`}
+              className="px-4 py-2 rounded-lg bg-[#1a5c2e] text-white text-sm font-medium hover:bg-[#174f27]"
+            >
+              &larr; Board {currentNum - 1}
+            </Link>
+          ) : (
+            <div />
+          )}
+          <Link
+            href={`/tournaments/${tournamentId}`}
+            className="px-4 py-2 rounded-lg bg-gray-200 text-gray-700 text-sm font-medium hover:bg-gray-300"
+          >
+            一覧に戻る
+          </Link>
+          {nextBoard ? (
+            <Link
+              href={`/tournaments/${tournamentId}/boards/${nextBoard}`}
+              className="px-4 py-2 rounded-lg bg-[#1a5c2e] text-white text-sm font-medium hover:bg-[#174f27]"
+            >
+              Board {currentNum + 1} &rarr;
+            </Link>
+          ) : (
+            <div />
+          )}
+        </div>
       </main>
     </div>
   );
