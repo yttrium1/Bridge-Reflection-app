@@ -105,8 +105,8 @@ export async function computeDDSTable(
     });
     return response.result;
   } catch (err) {
-    console.error("DDS fullTable failed. Hands:", JSON.stringify(handStrings));
-    throw err;
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(`DDS failed [hands: ${JSON.stringify(handStrings)}]: ${msg}`);
   }
 }
 
