@@ -73,7 +73,6 @@ export default function SharedTournamentPage() {
       <div className="min-h-screen flex items-center justify-center bg-[#f0f4f1]">
         <div className="text-center">
           <h1 className="text-xl font-bold text-gray-600 mb-2">{error || "データが見つかりません"}</h1>
-          <Link href="/login" className="text-sm text-[#1a5c2e] hover:underline">ログインページへ</Link>
         </div>
       </div>
     );
