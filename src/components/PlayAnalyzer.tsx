@@ -113,6 +113,55 @@ export default function PlayAnalyzer({ hands, declarer, trump, contract, myDirec
     return cardResult ? cardResult.tricks : null;
   };
 
+  // Calculate expected contract result from tricks
+  const contractLevel = contract ? parseInt(contract.replace(/[^0-9]/g, "")) || 0 : 0;
+  const requiredTricks = contractLevel + 6;
+
+  const getExpectedResult = (suit: string, rank: string): string | null => {
+    if (!showAnalysis || analysis.length === 0) return null;
+    const cardResult = analysis.find(a => a.suit === suit && a.rank === rank);
+    if (!cardResult) return null;
+
+    // tricks = number of tricks the nextPlayer's side will take from here
+    const myTricks = cardResult.tricks;
+
+    // Total tricks so far for declarer's side
+    const declSideTricks = declarerSide === "NS" ? nsTricks : ewTricks;
+    const defSideTricks = declarerSide === "NS" ? ewTricks : nsTricks;
+
+    // Is the current player on declarer's side?
+    const isDeclarerSide = isSameSide(nextPlayer, declarer);
+
+    // Projected total tricks for declarer
+    const projectedDeclarerTricks = isDeclarerSide
+      ? declSideTricks + myTricks
+      : declSideTricks + (13 - completedTricks.length * 1 - defSideTricks - myTricks);
+
+    // Wait, simpler: remaining cards = 13 - completedTricks.length tricks to play
+    // myTricks = tricks the nextPlayer's side gets from remaining cards
+    // If nextPlayer is on declarer side: declarer total = declSideTricks + myTricks
+    // If nextPlayer is on defense side: defense gets myTricks, declarer gets rest
+    const remainingTricks = 13 - completedTricks.length;
+    let finalDeclarerTricks: number;
+    if (isDeclarerSide) {
+      finalDeclarerTricks = declSideTricks + myTricks;
+    } else {
+      finalDeclarerTricks = declSideTricks + (remainingTricks - myTricks);
+    }
+
+    const diff = finalDeclarerTricks - requiredTricks;
+    if (diff > 0) return `+${diff}`;
+    if (diff === 0) return "=";
+    return String(diff);
+  };
+
+  const getResultColor = (result: string | null): string => {
+    if (!result) return "";
+    if (result === "=") return "text-gray-500";
+    if (result.startsWith("+")) return "text-blue-600";
+    return "text-red-600";
+  };
+
   const isCardPlayable = (dir: Direction, suit: string): boolean => {
     if (dir !== nextPlayer || isGameOver) return false;
     const leadSuit = currentTrick.length > 0 ? currentTrick[0].suit : null;
@@ -245,6 +294,9 @@ export default function PlayAnalyzer({ hands, declarer, trump, contract, myDirec
                 const highlight = getCardHighlight(suit, rank);
                 const tricks = getCardTricks(suit, rank);
 
+                const expectedResult = getExpectedResult(suit, rank);
+                const resultColor = getResultColor(expectedResult);
+
                 return (
                   <span
                     key={rank}
@@ -252,10 +304,16 @@ export default function PlayAnalyzer({ hands, declarer, trump, contract, myDirec
                     className={`
                       ${playable ? "cursor-pointer hover:bg-green-100 rounded px-0.5 transition-colors" : ""}
                       ${highlight}
+                      relative group
                     `}
-                    title={tricks !== null && playable ? `${tricks}トリック` : undefined}
+                    title={tricks !== null && playable ? `${tricks}トリック (${expectedResult})` : undefined}
                   >
                     {rank}
+                    {playable && expectedResult && showAnalysis && (
+                      <span className={`absolute -top-3.5 left-1/2 -translate-x-1/2 text-[8px] font-bold ${resultColor} whitespace-nowrap`}>
+                        {expectedResult}
+                      </span>
+                    )}
                   </span>
                 );
               }) : <span className="text-gray-300">—</span>}
@@ -399,7 +457,8 @@ export default function PlayAnalyzer({ hands, declarer, trump, contract, myDirec
           <span><span className="text-green-600 font-black">A</span> 最適手</span>
           <span><span className="text-yellow-600">A</span> -1トリック</span>
           <span><span className="text-red-500">A</span> -2以上</span>
-          <span className="ml-auto">クリックでカードをプレイ</span>
+          <span className="text-gray-400">| カード上の数字 = 予想コントラクト結果</span>
+          <span className="ml-auto">クリックでプレイ</span>
         </div>
       )}
 
