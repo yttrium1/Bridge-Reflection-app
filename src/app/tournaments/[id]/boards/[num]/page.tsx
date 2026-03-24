@@ -132,6 +132,27 @@ export default function BoardDetailPage() {
     );
   }
 
+  // Swipe navigation (hooks must be before any conditional returns)
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const prevBoardNum = parseInt(boardNum) > 1 ? parseInt(boardNum) - 1 : null;
+  const nextBoardNum = tournament ? (parseInt(boardNum) < tournament.totalBoards ? parseInt(boardNum) + 1 : null) : null;
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  }, []);
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (!touchStart.current) return;
+    const dx = e.changedTouches[0].clientX - touchStart.current.x;
+    const dy = e.changedTouches[0].clientY - touchStart.current.y;
+    if (Math.abs(dx) > 80 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      if (dx < 0 && nextBoardNum) {
+        router.push(`/tournaments/${tournamentId}/boards/${nextBoardNum}`);
+      } else if (dx > 0 && prevBoardNum) {
+        router.push(`/tournaments/${tournamentId}/boards/${prevBoardNum}`);
+      }
+    }
+    touchStart.current = null;
+  }, [nextBoardNum, prevBoardNum, router, tournamentId]);
+
   if (!board || !tournament) return null;
 
   const pairNumber = tournament.pairNumber;
@@ -145,32 +166,8 @@ export default function BoardDetailPage() {
     ? myResult?.ewId === pairId
     : myResult?.ew === pairNumber;
 
-  // Navigation
-  const prevBoard = parseInt(boardNum) > 1 ? parseInt(boardNum) - 1 : null;
-  const nextBoard =
-    parseInt(boardNum) < tournament.totalBoards
-      ? parseInt(boardNum) + 1
-      : null;
-
-  // Swipe navigation
-  const touchStart = useRef<{ x: number; y: number } | null>(null);
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-  }, []);
-  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
-    if (!touchStart.current) return;
-    const dx = e.changedTouches[0].clientX - touchStart.current.x;
-    const dy = e.changedTouches[0].clientY - touchStart.current.y;
-    // Only trigger if horizontal swipe > 80px and more horizontal than vertical
-    if (Math.abs(dx) > 80 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-      if (dx < 0 && nextBoard) {
-        router.push(`/tournaments/${tournamentId}/boards/${nextBoard}`);
-      } else if (dx > 0 && prevBoard) {
-        router.push(`/tournaments/${tournamentId}/boards/${prevBoard}`);
-      }
-    }
-    touchStart.current = null;
-  }, [nextBoard, prevBoard, router, tournamentId]);
+  const prevBoard = prevBoardNum;
+  const nextBoard = nextBoardNum;
 
   return (
     <div className="min-h-screen bg-[#f0f4f1]" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
