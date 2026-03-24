@@ -1,7 +1,8 @@
 // DDS solver using child_process - works in Cloud Run / serverless
 // Each calculation runs in an isolated process to avoid WASM state contamination
-import { spawn } from "child_process";
-import path from "path";
+// Use eval to hide from bundler's static analysis
+const _cp = eval('require')('child_process') as typeof import('child_process');
+const _path = eval('require')('path') as typeof import('path');
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -17,13 +18,12 @@ function handsToStringFormat(hand: Record<string, string[]>): string {
   }).join(".");
 }
 
-function getCliPath(): string {
-  return path.resolve(process.cwd(), "dds-worker-cli.js");
-}
-
 function runCli(data: any): Promise<any> {
   return new Promise((resolve, reject) => {
-    const child = spawn("node", [getCliPath()], {
+    // Use string concatenation to prevent bundler from resolving the path statically
+    const cliFile = "dds-worker-cli" + ".js";
+    const cliPath = _path.resolve(process.cwd(), cliFile);
+    const child = _cp.spawn("node", [cliPath], {
       stdio: ["pipe", "pipe", "pipe"],
       timeout: 120000, // 2 min timeout
     });
