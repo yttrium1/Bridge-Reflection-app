@@ -14,6 +14,7 @@ export default function AddSessionPage() {
   const { id: tournamentId } = useParams();
   const [url, setUrl] = useState("");
   const [pairNumber, setPairNumber] = useState("");
+  const [partnerName, setPartnerName] = useState("");
   const [sessionNumber, setSessionNumber] = useState("");
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState("");
@@ -56,12 +57,17 @@ export default function AddSessionPage() {
       const currentTotal = currentData?.totalBoards || 0;
 
       // Add session info to tournament
+      const pairNum = parseInt(pairNumber.replace(/[^0-9]/g, "")) || 0;
+      const pairId = pairNumber.match(/[A-Za-z]/) ? pairNumber.toUpperCase() : undefined;
+
       await updateDoc(tournamentRef, {
         totalBoards: currentTotal + data.boards.length,
         sessions: arrayUnion({
           sessionNumber: sessionNumber.trim(),
           sourceUrl: url,
-          pairNumber: parseInt(pairNumber),
+          pairNumber: pairNum,
+          ...(pairId && { pairId }),
+          ...(partnerName.trim() && { partnerName: partnerName.trim() }),
           totalBoards: data.boards.length,
         }),
       });
@@ -81,7 +87,8 @@ export default function AddSessionPage() {
           bidding: null,
           comment: null,
           sessionNumber: sessionNumber.trim(),
-          pairNumber: parseInt(pairNumber),
+          pairNumber: pairNum,
+          ...(pairId && { pairId }),
         });
       }
 
@@ -122,7 +129,7 @@ export default function AddSessionPage() {
             />
           </div>
 
-          <div className="flex gap-4">
+          <div className="flex gap-4 flex-wrap">
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">
                 セッション番号
@@ -141,13 +148,24 @@ export default function AddSessionPage() {
                 ペア番号
               </label>
               <input
-                type="number"
+                type="text"
                 value={pairNumber}
                 onChange={(e) => setPairNumber(e.target.value)}
                 required
-                min="1"
-                placeholder="例: 7"
-                className="w-32 px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a5c2e] text-sm"
+                placeholder="例: 7, NS-1, EW-3"
+                className="w-36 px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a5c2e] text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">
+                パートナー名
+              </label>
+              <input
+                type="text"
+                value={partnerName}
+                onChange={(e) => setPartnerName(e.target.value)}
+                placeholder="任意"
+                className="w-36 px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a5c2e] text-sm"
               />
             </div>
           </div>
