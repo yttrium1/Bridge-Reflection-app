@@ -110,19 +110,30 @@ export async function computeDDSTable(
   };
 
   // Sequential: 1 process per cell to avoid WASM state contamination
+  // Retry failed cells up to 2 times with delay
   for (const denom of denominations) {
     for (const declarer of directions) {
       const leader = LHO[declarer];
-      try {
-        const leaderTricks = await runCli({
-          hands: handStrings,
-          leader,
-          trump: denom,
-        });
-        result[declarer][denom] = 13 - leaderTricks;
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        throw new Error(`DDS failed [${declarer}-${denom}, hands: ${JSON.stringify(handStrings)}]: ${msg}`);
+      let lastErr: Error | null = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          if (attempt > 0) {
+            await new Promise(r => setTimeout(r, 500 * attempt));
+          }
+          const leaderTricks = await runCli({
+            hands: handStrings,
+            leader,
+            trump: denom,
+          });
+          result[declarer][denom] = 13 - leaderTricks;
+          lastErr = null;
+          break;
+        } catch (err) {
+          lastErr = err instanceof Error ? err : new Error(String(err));
+        }
+      }
+      if (lastErr) {
+        throw new Error(`DDS failed [${declarer}-${denom}, hands: ${JSON.stringify(handStrings)}]: ${lastErr.message}`);
       }
     }
   }
