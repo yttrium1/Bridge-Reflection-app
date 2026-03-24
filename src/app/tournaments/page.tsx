@@ -102,7 +102,7 @@ export default function TournamentsPage() {
                   <div>
                     <h3 className="font-bold text-gray-800">
                       {t.name}
-                      {t.sessionNumber && <span className="text-sm font-normal text-gray-500"> Session {t.sessionNumber}</span>}
+                      {t.sessionNumber && !(t.sessions && t.sessions.length > 0) && <span className="text-sm font-normal text-gray-500"> Session {t.sessionNumber}</span>}
                     </h3>
                     <p className="text-sm text-gray-500 mt-1">{t.date}</p>
                     <p className="text-xs text-gray-400 mt-1">
