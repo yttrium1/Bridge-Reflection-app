@@ -67,13 +67,16 @@ export default function SharedBoardPage() {
   const saveBidding = useCallback(
     async (bidding: BiddingEntry[]) => {
       if (!boardDocRef) return;
+      const oldValue = board?.bidding ? JSON.stringify(board.bidding) : "";
+      const newValue = JSON.stringify(bidding);
+      if (oldValue === newValue) return;
       try {
         const historyEntry: EditHistoryEntry = {
           timestamp: new Date().toISOString(),
           editor: "Guest",
           field: "bidding",
-          oldValue: board?.bidding ? JSON.stringify(board.bidding) : "",
-          newValue: JSON.stringify(bidding),
+          oldValue,
+          newValue,
         };
         await updateDoc(boardDocRef, {
           bidding,
@@ -90,12 +93,14 @@ export default function SharedBoardPage() {
   const saveComment = useCallback(
     async (comment: string) => {
       if (!boardDocRef) return;
+      const oldValue = board?.comment || "";
+      if (oldValue === comment) return;
       try {
         const historyEntry: EditHistoryEntry = {
           timestamp: new Date().toISOString(),
           editor: "Guest",
           field: "comment",
-          oldValue: board?.comment || "",
+          oldValue,
           newValue: comment,
         };
         await updateDoc(boardDocRef, {
@@ -215,24 +220,6 @@ export default function SharedBoardPage() {
             onCommentChange={saveComment}
           />
         </div>
-
-        {/* Edit History */}
-        {board.editHistory && board.editHistory.length > 0 && (
-          <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
-            <h3 className="text-sm font-bold text-gray-600 mb-2">編集履歴</h3>
-            <div className="space-y-1 max-h-40 overflow-y-auto">
-              {[...board.editHistory].reverse().map((entry, i) => (
-                <div key={i} className="text-xs text-gray-500 flex gap-2">
-                  <span className="text-gray-400 shrink-0">
-                    {new Date(entry.timestamp).toLocaleString("ja-JP")}
-                  </span>
-                  <span className="font-medium">{entry.editor}</span>
-                  <span>{entry.field === "bidding" ? "ビッディング" : "コメント"}を編集</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         <TravellerTable travellers={board.travellers} pairNumber={pairNumber} isEW={isEW} />
       </main>

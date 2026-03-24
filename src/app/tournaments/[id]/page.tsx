@@ -382,6 +382,52 @@ export default function TournamentDetailPage() {
             );
           })}
         </div>
+
+        {/* Edit History */}
+        {(() => {
+          // Collect all edit history entries from all boards
+          const allHistory: { boardNumber: number; entry: { timestamp: string; editor: string; field: string } }[] = [];
+          boards.forEach((board) => {
+            if (board.editHistory) {
+              board.editHistory.forEach((entry) => {
+                allHistory.push({ boardNumber: board.boardNumber, entry });
+              });
+            }
+          });
+          allHistory.sort((a, b) => new Date(b.entry.timestamp).getTime() - new Date(a.entry.timestamp).getTime());
+
+          if (allHistory.length === 0) return null;
+
+          return (
+            <div className="mt-8">
+              <h3 className="text-lg font-bold text-gray-700 mb-4">編集履歴</h3>
+              <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {allHistory.slice(0, 50).map((item, i) => (
+                    <div key={i} className="text-sm text-gray-600 flex items-center gap-2">
+                      <span className="text-xs text-gray-400 shrink-0">
+                        {new Date(item.entry.timestamp).toLocaleString("ja-JP")}
+                      </span>
+                      <span>
+                        <span className="font-medium">{item.entry.editor}</span>
+                        {" が "}
+                        <Link
+                          href={`/tournaments/${tournamentId}/boards/${item.boardNumber}`}
+                          className="text-[#1a5c2e] font-bold hover:underline"
+                        >
+                          #{item.boardNumber}
+                        </Link>
+                        {" に"}
+                        {item.entry.field === "bidding" ? "ビッディング" : "コメント"}
+                        {"を追加しました"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </main>
     </div>
   );
