@@ -1,19 +1,11 @@
 // DDS solver using child_process - works in Cloud Run / serverless
 // Each calculation runs in an isolated process to avoid WASM state contamination
-// Dynamic requires to avoid bundler issues with Node.js builtins
-/* eslint-disable @typescript-eslint/no-require-imports */
-const _spawn = (typeof globalThis.require !== "undefined"
-  ? globalThis.require("child_process")
-  : { spawn: () => { throw new Error("child_process not available"); } }
-).spawn as typeof import("child_process").spawn;
-const _path = (typeof globalThis.require !== "undefined"
-  ? globalThis.require("path")
-  : { resolve: (...a: string[]) => a.join("/") }
-) as typeof import("path");
-const _fs = (typeof globalThis.require !== "undefined"
-  ? globalThis.require("fs")
-  : { existsSync: () => false }
-) as typeof import("fs");
+// Node.js builtins are externalized via next.config.ts webpack config
+import { spawn } from "child_process";
+import path from "path";
+import fs from "fs";
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -32,23 +24,23 @@ function handsToStringFormat(hand: Record<string, string[]>): string {
 function findCliPath(): string {
   const cliFile = "dds-worker-cli.js";
   const candidates = [
-    _path.resolve(process.cwd(), cliFile),
-    _path.resolve(process.cwd(), "..", cliFile),
-    _path.resolve("/workspace", cliFile),
-    _path.resolve("/app", cliFile),
+    path.resolve(process.cwd(), cliFile),
+    path.resolve(process.cwd(), "..", cliFile),
+    path.resolve("/workspace", cliFile),
+    path.resolve("/app", cliFile),
   ];
-  for (const p of candidates) {
+  for (const c of candidates) {
     try {
-      if (_fs.existsSync(p)) return p;
+      if (fs.existsSync(c)) return c;
     } catch { /* ignore */ }
   }
-  return _path.resolve(process.cwd(), cliFile);
+  return path.resolve(process.cwd(), cliFile);
 }
 
 function runCli(data: any): Promise<any> {
+  const cliPath = findCliPath();
   return new Promise((resolve, reject) => {
-    const cliPath = findCliPath();
-    const child = _spawn("node", [cliPath], {
+    const child = spawn("node", [cliPath], {
       stdio: ["pipe", "pipe", "pipe"],
       timeout: 120000,
     });

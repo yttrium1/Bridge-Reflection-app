@@ -7,6 +7,16 @@ const nextConfig: NextConfig = {
     "/api/best-lead": ["./dds-worker-cli.js", "./node_modules/@bridge-tools/**/*"],
     "/api/play-analysis": ["./dds-worker-cli.js", "./node_modules/@bridge-tools/**/*"],
   },
+  turbopack: {},
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      config.externals = config.externals || [];
+      if (Array.isArray(config.externals)) {
+        config.externals.push("child_process", "fs", "path");
+      }
+    }
+    return config;
+  },
 };
 
 export default nextConfig;
