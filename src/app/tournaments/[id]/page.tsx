@@ -8,7 +8,6 @@ import { db, storage } from "@/lib/firebase";
 import { doc, getDoc, deleteDoc, updateDoc, collection, getDocs, orderBy, query, arrayUnion } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import type { TournamentData, BoardData } from "@/lib/bridge/types";
-import { useDDS } from "@/hooks/useDDS";
 import HandDiagram from "@/components/HandDiagram";
 import WeaknessAnalysis from "@/components/WeaknessAnalysis";
 
@@ -34,7 +33,8 @@ function normalizeResult(result: number, contractLevel: number): number {
 }
 
 function BoardCardDD({ board, pairNumber }: { board: BoardData; pairNumber: number }) {
-  const ddsResult = useDDS(board.hands);
+  // Only use cached DDS results on list page - never trigger API calls
+  const ddsResult = board.ddsTable;
   const myResult = board.travellers.find(
     (t) => t.ns === pairNumber || t.ew === pairNumber
   );
