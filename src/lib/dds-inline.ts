@@ -17,7 +17,12 @@ function handsToStringFormat(hand: Record<string, string[]>): string {
   const suits = ["S", "H", "D", "C"];
   return suits.map(s => {
     const cards = hand[s] || [];
-    return cards.map((c: string) => c === "10" ? "T" : c).join("");
+    return cards.map((c: string) => {
+      if (c === "10") return "T";
+      // Handle any unexpected numeric values
+      if (typeof c === "number") return c === 10 ? "T" : String(c);
+      return c;
+    }).join("");
   }).join(".");
 }
 
@@ -93,12 +98,16 @@ export async function computeDDSTable(
     }
   }
 
-  const response = await runCli({
-    mode: "fullTable",
-    hands: handStrings,
-  });
-
-  return response.result;
+  try {
+    const response = await runCli({
+      mode: "fullTable",
+      hands: handStrings,
+    });
+    return response.result;
+  } catch (err) {
+    console.error("DDS fullTable failed. Hands:", JSON.stringify(handStrings));
+    throw err;
+  }
 }
 
 /**

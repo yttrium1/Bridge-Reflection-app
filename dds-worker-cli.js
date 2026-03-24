@@ -38,6 +38,14 @@ async function run() {
     const denominations = ["C", "D", "H", "S", "NT"];
     const result = { N: {}, E: {}, S: {}, W: {} };
 
+    // Validate hands before processing
+    for (const d of directions) {
+      if (!hands[d] || typeof hands[d] !== "string") {
+        process.stderr.write("DDS CLI error: Invalid hand for " + d + ": " + JSON.stringify(hands[d]));
+        process.exit(1);
+      }
+    }
+
     for (const denom of denominations) {
       for (const decl of directions) {
         clearBridgeToolsCache();
