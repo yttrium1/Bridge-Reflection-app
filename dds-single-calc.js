@@ -24,12 +24,30 @@ async function run() {
   const input = JSON.parse(Buffer.concat(chunks).toString());
   const { hands, leader, trump, trick, mode } = input;
 
+  // Ensure WASM file exists in expected location
+  const pathMod = require("path");
+  const fsMod = require("fs");
+  const ddPaths = [
+    pathMod.resolve(process.cwd(), "node_modules/@bridge-tools/dd"),
+    pathMod.resolve(__dirname, "node_modules/@bridge-tools/dd"),
+  ];
+  for (const ddPath of ddPaths) {
+    const wasmSrc = pathMod.resolve(ddPath, "wasm/compiled.wasm");
+    const wasmDst = pathMod.resolve(ddPath, "dist/compiled.wasm");
+    if (fsMod.existsSync(wasmSrc) && !fsMod.existsSync(wasmDst)) {
+      try {
+        fsMod.mkdirSync(pathMod.resolve(ddPath, "dist"), { recursive: true });
+        fsMod.copyFileSync(wasmSrc, wasmDst);
+      } catch { /* ignore */ }
+    }
+  }
+
   // Try multiple paths to find @bridge-tools/dd
   let dd;
   const pathsToTry = [
     "@bridge-tools/dd",
-    require("path").resolve(process.cwd(), "node_modules/@bridge-tools/dd"),
-    require("path").resolve(__dirname, "node_modules/@bridge-tools/dd"),
+    pathMod.resolve(process.cwd(), "node_modules/@bridge-tools/dd"),
+    pathMod.resolve(__dirname, "node_modules/@bridge-tools/dd"),
   ];
   for (const p of pathsToTry) {
     try {
@@ -37,7 +55,7 @@ async function run() {
       break;
     } catch { /* try next */ }
   }
-  if (!dd) throw new Error("Cannot find @bridge-tools/dd");
+  if (!dd) throw new Error("Cannot find @bridge-tools/dd in: " + pathsToTry.join(", "));
   const { doubleDummySolveTricks, doubleDummySolve } = dd;
 
   const deal = {};
