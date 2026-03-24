@@ -98,16 +98,24 @@ export default function WeaknessAnalysis({
   const playAvg = avgDiff(playBoards);
   const defenseAvg = avgDiff(defenseBoards);
 
-  // Worst boards (DD diff <= -2)
+  // Worst boards: Play未達 or Defense超え（相手にやられた）
   const worstBoards = [...analysis]
-    .filter(a => a.ddDiff <= -1)
-    .sort((a, b) => a.ddDiff - b.ddDiff)
+    .filter(a => (a.role === "Play" && a.ddDiff <= -1) || (a.role === "Defense" && a.ddDiff >= 1))
+    .sort((a, b) => {
+      const aScore = a.role === "Play" ? a.ddDiff : -a.ddDiff;
+      const bScore = b.role === "Play" ? b.ddDiff : -b.ddDiff;
+      return aScore - bScore;
+    })
     .slice(0, 8);
 
-  // Best boards (DD diff >= 1)
+  // Best boards: Play超え or Defense未達（うまくいった）
   const bestBoards = [...analysis]
-    .filter(a => a.ddDiff >= 1)
-    .sort((a, b) => b.ddDiff - a.ddDiff)
+    .filter(a => (a.role === "Play" && a.ddDiff >= 1) || (a.role === "Defense" && a.ddDiff <= -1))
+    .sort((a, b) => {
+      const aScore = a.role === "Play" ? a.ddDiff : -a.ddDiff;
+      const bScore = b.role === "Play" ? b.ddDiff : -b.ddDiff;
+      return bScore - aScore;
+    })
     .slice(0, 5);
 
   return (
@@ -139,7 +147,7 @@ export default function WeaknessAnalysis({
       {/* Worst boards */}
       {worstBoards.length > 0 && (
         <div className="mb-3">
-          <div className="text-xs font-bold text-red-600 mb-2">DD未達ボード</div>
+          <div className="text-xs font-bold text-red-600 mb-2">反省ボード</div>
           <div className="space-y-1">
             {worstBoards.map((b) => (
               <Link
@@ -157,7 +165,9 @@ export default function WeaknessAnalysis({
                 <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${b.role === "Play" ? "bg-blue-100 text-blue-700" : "bg-orange-100 text-orange-700"}`}>
                   {b.role}
                 </span>
-                <span className="text-red-600 font-bold ml-auto">DD{b.ddDiff}</span>
+                <span className="text-red-600 font-bold ml-auto">
+                  {b.role === "Play" ? `DD${b.ddDiff}` : `DD+${b.ddDiff}`}
+                </span>
               </Link>
             ))}
           </div>
@@ -167,7 +177,7 @@ export default function WeaknessAnalysis({
       {/* Best boards */}
       {bestBoards.length > 0 && (
         <div>
-          <div className="text-xs font-bold text-blue-600 mb-2">DD超えボード</div>
+          <div className="text-xs font-bold text-blue-600 mb-2">好プレイボード</div>
           <div className="space-y-1">
             {bestBoards.map((b) => (
               <Link
@@ -182,7 +192,9 @@ export default function WeaknessAnalysis({
                 <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${b.role === "Play" ? "bg-blue-100 text-blue-700" : "bg-orange-100 text-orange-700"}`}>
                   {b.role}
                 </span>
-                <span className="text-blue-600 font-bold ml-auto">DD+{b.ddDiff}</span>
+                <span className="text-blue-600 font-bold ml-auto">
+                  {b.role === "Play" ? `DD+${b.ddDiff}` : `DD${b.ddDiff}`}
+                </span>
               </Link>
             ))}
           </div>
