@@ -9,10 +9,12 @@ export function useDDS(hands: BoardHands | null): DDSTable | null {
   useEffect(() => {
     if (!hands) return;
 
-    // Check if hands have actual cards (not empty)
-    const hasCards = hands.N.S.length > 0 || hands.N.H.length > 0 ||
-                     hands.N.D.length > 0 || hands.N.C.length > 0;
+    // Check if hands have actual cards and exactly 13 per hand
+    const cardCount = (h: typeof hands.N) => h.S.length + h.H.length + h.D.length + h.C.length;
+    const hasCards = cardCount(hands.N) > 0;
     if (!hasCards) return;
+    const allValid = ["N", "E", "S", "W"].every(d => cardCount(hands[d as keyof typeof hands]) === 13);
+    if (!allValid) return;
 
     const controller = new AbortController();
 

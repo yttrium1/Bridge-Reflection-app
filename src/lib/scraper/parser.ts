@@ -109,16 +109,32 @@ export function parseHandRecord(handText: string): {
     return hand;
   }
 
+  const hands = {
+    N: buildHand(northSuits),
+    W: buildHand(westSuits),
+    E: buildHand(eastSuits),
+    S: buildHand(southSuits),
+  };
+
+  // Validate: each hand should have exactly 13 cards
+  // If duplicates exist (same suit parsed twice), deduplicate
+  for (const dir of ["N", "E", "S", "W"] as const) {
+    const hand = hands[dir];
+    for (const suit of ["S", "H", "D", "C"] as const) {
+      // Remove duplicate cards within a suit
+      hand[suit] = [...new Set(hand[suit])];
+    }
+    const totalCards = hand.S.length + hand.H.length + hand.D.length + hand.C.length;
+    if (totalCards !== 13 && totalCards > 0) {
+      console.warn(`Warning: ${dir} has ${totalCards} cards (expected 13) in board ${boardNumber}`);
+    }
+  }
+
   return {
     boardNumber,
     dealer,
     vulnerability,
-    hands: {
-      N: buildHand(northSuits),
-      W: buildHand(westSuits),
-      E: buildHand(eastSuits),
-      S: buildHand(southSuits),
-    },
+    hands,
   };
 }
 
