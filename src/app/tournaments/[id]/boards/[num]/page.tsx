@@ -396,6 +396,7 @@ export default function BoardDetailPage() {
             trump={contractToTrump(myResult.contract)}
             contract={myResult.contract + " by " + myResult.declarer}
             myDirections={isEW ? ["E", "W"] : ["N", "S"]}
+            bidding={board.bidding}
           />
         )}
 

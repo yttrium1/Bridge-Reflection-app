@@ -12,6 +12,7 @@ import {
   removeCardFromHand,
   isSameSide,
 } from "@/lib/bridge/play-utils";
+import { selectDefenseCard, getPartnerBidSuits } from "@/lib/bridge/defense-carding";
 
 const SUIT_SYMBOLS: Record<string, { symbol: string; color: string }> = {
   S: { symbol: "♠", color: "text-blue-900" },
@@ -32,9 +33,10 @@ interface PlayAnalyzerProps {
   trump: string;
   contract?: string;
   myDirections?: Direction[];
+  bidding?: { seat: string; bid: string }[] | null;
 }
 
-export default function PlayAnalyzer({ hands, declarer, trump, contract, myDirections }: PlayAnalyzerProps) {
+export default function PlayAnalyzer({ hands, declarer, trump, contract, myDirections, bidding }: PlayAnalyzerProps) {
   const [remainingHands, setRemainingHands] = useState<BoardHands>({ ...hands });
   const [completedTricks, setCompletedTricks] = useState<CompletedTrick[]>([]);
   const [currentTrick, setCurrentTrick] = useState<PlayedCard[]>([]);
@@ -47,6 +49,9 @@ export default function PlayAnalyzer({ hands, declarer, trump, contract, myDirec
   const [playHistory, setPlayHistory] = useState<{ card: PlayedCard; wasOptimal: boolean; tricksDiff: number }[]>([]);
   const [analysisTrigger, setAnalysisTrigger] = useState(0);
   const [hoveredCard, setHoveredCard] = useState<{ suit: string; rank: string } | null>(null);
+  const [autoDefense, setAutoDefense] = useState(false);
+  const autoDefenseRef = useRef(false);
+  autoDefenseRef.current = autoDefense;
 
   const isGameOver = completedTricks.length === 13;
 
@@ -92,6 +97,43 @@ export default function PlayAnalyzer({ hands, declarer, trump, contract, myDirec
     doFetch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [analysisTrigger, showAnalysis, isGameOver, trump]);
+
+  // 自動ディフェンス: DDS解析完了時にディフェンス側なら自動プレイ
+  const autoPlayTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!autoDefenseRef.current || analyzing || analysis.length === 0 || isGameOver) return;
+    // ディフェンス側かチェック
+    const isDefenseTurn = !isSameSide(nextPlayer, declarer);
+    if (!isDefenseTurn) return;
+
+    // 最善手を取得
+    const maxTricks = analysis[0].tricks;
+    const bestCards = analysis.filter(a => a.tricks === maxTricks);
+
+    const isOpeningLead = completedTricks.length === 0 && currentTrick.length === 0;
+    const partnerSuits = getPartnerBidSuits(bidding || null, nextPlayer);
+
+    const selected = selectDefenseCard(
+      bestCards,
+      remainingHands[nextPlayer],
+      currentTrick.length,
+      isOpeningLead,
+      trump,
+      partnerSuits,
+    );
+
+    // 500msディレイで自動プレイ
+    autoPlayTimeoutRef.current = setTimeout(() => {
+      if (autoDefenseRef.current) {
+        playCard(nextPlayer, selected.suit, selected.rank);
+      }
+    }, 500);
+
+    return () => {
+      if (autoPlayTimeoutRef.current) clearTimeout(autoPlayTimeoutRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [analysis, analyzing, isGameOver, nextPlayer, autoDefense]);
 
   const getCardHighlight = (suit: string, rank: string): string => {
     if (!showAnalysis || analysis.length === 0) return "";
@@ -208,6 +250,7 @@ export default function PlayAnalyzer({ hands, declarer, trump, contract, myDirec
   };
 
   const resetPlay = () => {
+    if (autoPlayTimeoutRef.current) clearTimeout(autoPlayTimeoutRef.current);
     setRemainingHands({
       N: { S: [...hands.N.S], H: [...hands.N.H], D: [...hands.N.D], C: [...hands.N.C] },
       E: { S: [...hands.E.S], H: [...hands.E.H], D: [...hands.E.D], C: [...hands.E.C] },
@@ -324,6 +367,10 @@ export default function PlayAnalyzer({ hands, declarer, trump, contract, myDirec
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-base font-bold text-gray-700">プレイ解析</h3>
         <div className="flex items-center gap-2">
+          <label className="flex items-center gap-1 text-xs text-gray-500 cursor-pointer">
+            <input type="checkbox" checked={autoDefense} onChange={() => setAutoDefense(!autoDefense)} className="rounded" />
+            自動ディフェンス
+          </label>
           <label className="flex items-center gap-1 text-xs text-gray-500 cursor-pointer">
             <input type="checkbox" checked={showAnalysis} onChange={() => setShowAnalysis(!showAnalysis)} className="rounded" />
             最適手表示
