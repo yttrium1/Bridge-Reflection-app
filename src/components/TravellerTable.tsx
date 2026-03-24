@@ -38,8 +38,8 @@ export default function TravellerTable({
                 ? "="
                 : String(row.result);
 
-            // MP% is stored as NS perspective; invert for EW
-            const displayMp = isEW ? (100 - row.mp) : row.mp;
+            // MP% from fitsys.jp is EW perspective; invert for NS
+            const displayMp = isEW ? row.mp : (100 - row.mp);
 
             return (
               <tr
