@@ -123,31 +123,34 @@ export default function PlayAnalyzer({ hands, declarer, trump, contract, myDirec
     const cardResult = analysis.find(a => a.suit === suit && a.rank === rank);
     if (!cardResult) return null;
 
-    // tricks = number of tricks the nextPlayer's side will take from here
-    const myTricks = cardResult.tricks;
+    // DDS doubleDummySolve returns tricks for nextPlayer's SIDE from current position
+    // This includes the current trick being played out
+    const sideTriicks = cardResult.tricks;
 
-    // Total tricks so far for declarer's side
     const declSideTricks = declarerSide === "NS" ? nsTricks : ewTricks;
-    const defSideTricks = declarerSide === "NS" ? ewTricks : nsTricks;
-
-    // Is the current player on declarer's side?
     const isDeclarerSide = isSameSide(nextPlayer, declarer);
 
-    // Projected total tricks for declarer
-    const projectedDeclarerTricks = isDeclarerSide
-      ? declSideTricks + myTricks
-      : declSideTricks + (13 - completedTricks.length * 1 - defSideTricks - myTricks);
-
-    // Wait, simpler: remaining cards = 13 - completedTricks.length tricks to play
-    // myTricks = tricks the nextPlayer's side gets from remaining cards
-    // If nextPlayer is on declarer side: declarer total = declSideTricks + myTricks
-    // If nextPlayer is on defense side: defense gets myTricks, declarer gets rest
-    const remainingTricks = 13 - completedTricks.length;
+    // sideTriicks = tricks nextPlayer's side will take from THIS POINT forward
+    // (including completing current trick and all remaining tricks)
     let finalDeclarerTricks: number;
     if (isDeclarerSide) {
-      finalDeclarerTricks = declSideTricks + myTricks;
+      // nextPlayer is on declarer side, sideTriicks = declarer's future tricks
+      finalDeclarerTricks = declSideTricks + sideTriicks;
     } else {
-      finalDeclarerTricks = declSideTricks + (remainingTricks - myTricks);
+      // nextPlayer is on defense side, sideTriicks = defense's future tricks
+      // remaining tricks from this point = cards per hand (which DDS handles internally)
+      // declarer's future tricks = total remaining - defense's future tricks
+      const cardsPerHand = remainingHands[nextPlayer].S.length +
+        remainingHands[nextPlayer].H.length +
+        remainingHands[nextPlayer].D.length +
+        remainingHands[nextPlayer].C.length;
+      // But we need remaining TRICKS not cards. If in middle of trick, it's tricky.
+      // DDS accounts for currentTrick, so sideTriicks already factors that in.
+      // Remaining full tricks from here = cardsPerHand (since nextPlayer hasn't played yet)
+      // Actually: total remaining tricks = cardsPerHand (nextPlayer's cards = tricks left)
+      // But if currentTrick has cards, those players already played in this trick
+      // So remaining tricks = cardsPerHand (for nextPlayer who hasn't played in current trick yet)
+      finalDeclarerTricks = declSideTricks + (cardsPerHand - sideTriicks);
     }
 
     const diff = finalDeclarerTricks - requiredTricks;
