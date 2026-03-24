@@ -49,9 +49,12 @@ export default function PlayAnalyzer({ hands, declarer, trump, contract, myDirec
   const [playHistory, setPlayHistory] = useState<{ card: PlayedCard; wasOptimal: boolean; tricksDiff: number }[]>([]);
   const [analysisTrigger, setAnalysisTrigger] = useState(0);
   const [hoveredCard, setHoveredCard] = useState<{ suit: string; rank: string } | null>(null);
-  const [autoDefense, setAutoDefense] = useState(false);
-  const autoDefenseRef = useRef(false);
-  autoDefenseRef.current = autoDefense;
+  // autoPlay: "off" | "defense" (ディフェンス自動) | "declarer" (ディクレアラー自動)
+  const isDeclarerSide = myDirections ? myDirections.some(d => isSameSide(d as Direction, declarer)) : true;
+  const defaultAutoMode = isDeclarerSide ? "defense" : "declarer";
+  const [autoPlay, setAutoPlay] = useState<"off" | "defense" | "declarer">("off");
+  const autoPlayRef = useRef<"off" | "defense" | "declarer">("off");
+  autoPlayRef.current = autoPlay;
 
   const isGameOver = completedTricks.length === 13;
 
@@ -98,13 +101,18 @@ export default function PlayAnalyzer({ hands, declarer, trump, contract, myDirec
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [analysisTrigger, showAnalysis, isGameOver, trump]);
 
-  // 自動ディフェンス: DDS解析完了時にディフェンス側なら自動プレイ
+  // 自動プレイ: DDS解析完了時に該当側なら自動プレイ
   const autoPlayTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    if (!autoDefenseRef.current || analyzing || analysis.length === 0 || isGameOver) return;
-    // ディフェンス側かチェック
+    if (autoPlayRef.current === "off" || analyzing || analysis.length === 0 || isGameOver) return;
+
     const isDefenseTurn = !isSameSide(nextPlayer, declarer);
-    if (!isDefenseTurn) return;
+    // autoPlay === "defense" → ディフェンス側のターンで自動プレイ
+    // autoPlay === "declarer" → ディクレアラー側のターンで自動プレイ
+    const shouldAutoPlay =
+      (autoPlayRef.current === "defense" && isDefenseTurn) ||
+      (autoPlayRef.current === "declarer" && !isDefenseTurn);
+    if (!shouldAutoPlay) return;
 
     // 最善手を取得
     const maxTricks = analysis[0].tricks;
@@ -124,7 +132,7 @@ export default function PlayAnalyzer({ hands, declarer, trump, contract, myDirec
 
     // 500msディレイで自動プレイ
     autoPlayTimeoutRef.current = setTimeout(() => {
-      if (autoDefenseRef.current) {
+      if (autoPlayRef.current !== "off") {
         playCard(nextPlayer, selected.suit, selected.rank);
       }
     }, 500);
@@ -133,7 +141,7 @@ export default function PlayAnalyzer({ hands, declarer, trump, contract, myDirec
       if (autoPlayTimeoutRef.current) clearTimeout(autoPlayTimeoutRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [analysis, analyzing, isGameOver, nextPlayer, autoDefense]);
+  }, [analysis, analyzing, isGameOver, nextPlayer, autoPlay]);
 
   const getCardHighlight = (suit: string, rank: string): string => {
     if (!showAnalysis || analysis.length === 0) return "";
@@ -368,8 +376,13 @@ export default function PlayAnalyzer({ hands, declarer, trump, contract, myDirec
         <h3 className="text-base font-bold text-gray-700">プレイ解析</h3>
         <div className="flex items-center gap-2">
           <label className="flex items-center gap-1 text-xs text-gray-500 cursor-pointer">
-            <input type="checkbox" checked={autoDefense} onChange={() => setAutoDefense(!autoDefense)} className="rounded" />
-            自動ディフェンス
+            <input
+              type="checkbox"
+              checked={autoPlay !== "off"}
+              onChange={() => setAutoPlay(autoPlay === "off" ? defaultAutoMode : "off")}
+              className="rounded"
+            />
+            {defaultAutoMode === "defense" ? "自動ディフェンス" : "自動プレイ"}
           </label>
           <label className="flex items-center gap-1 text-xs text-gray-500 cursor-pointer">
             <input type="checkbox" checked={showAnalysis} onChange={() => setShowAnalysis(!showAnalysis)} className="rounded" />

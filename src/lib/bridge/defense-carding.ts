@@ -27,7 +27,7 @@ export function selectDefenseCard(
   if (bestCards.length === 1) return { suit: bestCards[0].suit, rank: bestCards[0].rank };
 
   const isLeading = currentTrickLength === 0;
-  const isFollowing = !isLeading;
+  const is3rdHand = currentTrickLength === 2;
 
   // --- オープニングリード ---
   if (isOpeningLead && isLeading) {
@@ -39,12 +39,13 @@ export function selectDefenseCard(
     return selectSubsequentLead(bestCards, hand);
   }
 
-  // --- フォロー ---
-  if (isFollowing) {
-    return selectFollow(bestCards, hand);
+  // --- 3rd hand high: 3番目にプレイする場合、最も高いカードを出す ---
+  if (is3rdHand) {
+    return select3rdHandHigh(bestCards);
   }
 
-  return { suit: bestCards[0].suit, rank: bestCards[0].rank };
+  // --- フォロー（2番目 or 4番目）---
+  return selectFollow(bestCards, hand);
 }
 
 /**
@@ -108,6 +109,16 @@ function selectSubsequentLead(
 
   // デフォルト: 最も上
   return selectTop(selectedSuit, cardsInSuit);
+}
+
+/**
+ * 3rd hand high: 3番目にプレイする場合、最も高いカードを出す
+ * 勝てる可能性があれば一番高いカードを選択
+ */
+function select3rdHandHigh(bestCards: CardOption[]): { suit: string; rank: string } {
+  const sorted = sortByRankDesc(bestCards);
+  // 最も高いランクのカードを返す
+  return { suit: sorted[0].suit, rank: sorted[0].rank };
 }
 
 /**
