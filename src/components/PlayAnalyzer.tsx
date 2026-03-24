@@ -383,58 +383,16 @@ export default function PlayAnalyzer({ hands, declarer, trump, contract, myDirec
         {/* Center - cross layout for played cards */}
         <div className="col-start-2 row-start-2 flex items-center justify-center">
           <div className="w-28 h-28 border-2 border-[#1a5c2e] rounded-lg bg-[#f0f7f2] relative">
-            {currentTrick.length === 0 && !isGameOver && (() => {
-              // Show hovered card result or best play result in center
-              if (showAnalysis && analysis.length > 0) {
-                const bestResult = getExpectedResult(analysis[0].suit, analysis[0].rank);
-                const bestColor = getResultColor(bestResult);
-                const hovered = hoveredCard ? getExpectedResult(hoveredCard.suit, hoveredCard.rank) : null;
-                const hoveredColor = getResultColor(hovered);
-
-                return (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    {hoveredCard ? (
-                      <>
-                        <span className={`${SUIT_SYMBOLS[hoveredCard.suit]?.color || ""} text-sm font-bold`}>
-                          {SUIT_SYMBOLS[hoveredCard.suit]?.symbol}{hoveredCard.rank}
-                        </span>
-                        <span className={`text-xl font-black ${hoveredColor}`}>{hovered}</span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="text-[9px] text-gray-400">{nextPlayer}がリード</span>
-                        <span className={`text-lg font-black ${bestColor}`}>{bestResult}</span>
-                        <span className="text-[8px] text-gray-400">最善</span>
-                      </>
-                    )}
-                  </div>
-                );
-              }
-              return (
-                <div className="absolute inset-0 flex items-center justify-center text-[10px] text-gray-400">
-                  {nextPlayer}がリード
-                </div>
-              );
-            })()}
+            {currentTrick.length === 0 && !isGameOver && (
+              <div className="absolute inset-0 flex items-center justify-center text-[10px] text-gray-400">
+                {nextPlayer}がリード
+              </div>
+            )}
             {isGameOver && currentTrick.length === 0 && (
               <div className="absolute inset-0 flex items-center justify-center text-[10px] text-gray-400">
                 終了
               </div>
             )}
-            {/* Hover result overlay during trick */}
-            {currentTrick.length > 0 && hoveredCard && showAnalysis && (() => {
-              const hovered = getExpectedResult(hoveredCard.suit, hoveredCard.rank);
-              const hoveredColor = getResultColor(hovered);
-              if (!hovered) return null;
-              return (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#f0f7f2]/90 z-10 rounded-lg">
-                  <span className={`${SUIT_SYMBOLS[hoveredCard.suit]?.color || ""} text-sm font-bold`}>
-                    {SUIT_SYMBOLS[hoveredCard.suit]?.symbol}{hoveredCard.rank}
-                  </span>
-                  <span className={`text-xl font-black ${hoveredColor}`}>{hovered}</span>
-                </div>
-              );
-            })()}
             {/* N position - top center */}
             {currentTrick.find(c => c.player === "N") && (() => {
               const card = currentTrick.find(c => c.player === "N")!;
@@ -481,8 +439,37 @@ export default function PlayAnalyzer({ hands, declarer, trump, contract, myDirec
         <div className="col-start-3 row-start-2 flex items-center justify-end">
           {renderHandSuits("E")}
         </div>
-        {/* empty bottom-left */}
-        <div className="col-start-1 row-start-3" />
+        {/* Bottom-left: expected result display */}
+        <div className="col-start-1 row-start-3 flex items-start">
+          {showAnalysis && !isGameOver && (() => {
+            const hovered = hoveredCard ? getExpectedResult(hoveredCard.suit, hoveredCard.rank) : null;
+            const hoveredColor = getResultColor(hovered);
+            const best = analysis.length > 0 ? getExpectedResult(analysis[0].suit, analysis[0].rank) : null;
+            const bestColor = getResultColor(best);
+
+            if (hoveredCard && hovered) {
+              return (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-center">
+                  <div className="flex items-center gap-1">
+                    <span className={`${SUIT_SYMBOLS[hoveredCard.suit]?.color || ""} text-xs font-bold`}>
+                      {SUIT_SYMBOLS[hoveredCard.suit]?.symbol}{hoveredCard.rank}
+                    </span>
+                    <span className={`text-lg font-black ${hoveredColor}`}>{hovered}</span>
+                  </div>
+                </div>
+              );
+            }
+            if (best) {
+              return (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-center">
+                  <div className="text-[8px] text-gray-400">最善</div>
+                  <div className={`text-lg font-black ${bestColor}`}>{best}</div>
+                </div>
+              );
+            }
+            return null;
+          })()}
+        </div>
         {/* South */}
         <div className="col-start-2 row-start-3 flex justify-center">
           {renderHandSuits("S")}
