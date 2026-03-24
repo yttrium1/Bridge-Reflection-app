@@ -51,7 +51,10 @@ export function useDDS(
           signal: controller.signal,
         });
 
-        if (!response.ok) throw new Error("DDS API error");
+        if (!response.ok) {
+          const errBody = await response.json().catch(() => ({}));
+          throw new Error(`DDS API error: ${errBody.details || response.status}`);
+        }
 
         const result = (await response.json()) as DDSTable;
         setDdsTable(result);
