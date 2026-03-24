@@ -235,21 +235,26 @@ export default function TournamentDetailPage() {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-8">
-        {tournament.pdfUrls && tournament.pdfUrls.length > 0 && (
-          <div className="mb-4 flex gap-2 flex-wrap">
-            {tournament.pdfUrls.map((url, i) => (
+        {/* PDF Results Button */}
+        <div className="mb-4 flex gap-2 flex-wrap items-center">
+          {tournament.pdfUrls && tournament.pdfUrls.length > 0 ? (
+            tournament.pdfUrls.map((url, i) => (
               <a
                 key={i}
                 href={url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs px-3 py-1.5 rounded-lg bg-white border border-gray-200 text-[#1a5c2e] hover:bg-green-50 transition inline-flex items-center gap-1"
+                className="text-sm px-4 py-2 rounded-lg bg-[#1a5c2e] text-white hover:bg-[#2d8a4e] transition inline-flex items-center gap-1.5 font-bold"
               >
-                PDF {i + 1} を表示
+                📄 結果{tournament.pdfUrls!.length > 1 ? ` ${i + 1}` : ""}
               </a>
-            ))}
-          </div>
-        )}
+            ))
+          ) : (
+            <span className="text-sm px-4 py-2 rounded-lg bg-gray-100 text-gray-400 border border-gray-200 inline-flex items-center gap-1.5">
+              📄 結果未アップロード
+            </span>
+          )}
+        </div>
         {(() => {
           // Group boards by session
           const sessions = new Map<string, (BoardData & { _docId?: string })[]>();
@@ -269,19 +274,59 @@ export default function TournamentDetailPage() {
 
           return sessionEntries.map(([sn, sessionBoards]) => {
             const sessionPairNumber = getSessionPairNumber(sn);
+            const isIMP = tournament.scoringType === "IMP";
+            const pairId = (tournament as TournamentData & { pairId?: string }).pairId;
+
+            // Calculate session average
+            const sessionScores: number[] = [];
+            for (const board of sessionBoards) {
+              const myResult = isIMP && pairId
+                ? board.travellers.find((t) => t.nsId === pairId || t.ewId === pairId)
+                : board.travellers.find((t) => t.ns === sessionPairNumber || t.ew === sessionPairNumber);
+              if (!myResult) continue;
+              const isNS = isIMP && pairId
+                ? myResult.nsId === pairId
+                : myResult.ns === sessionPairNumber;
+
+              if (isIMP && myResult.impPerTable !== undefined) {
+                sessionScores.push(myResult.impPerTable);
+              } else if (!isIMP && myResult.mp !== undefined) {
+                sessionScores.push(isNS ? myResult.mp : 100 - myResult.mp);
+              }
+            }
+            const avgScore = sessionScores.length > 0
+              ? sessionScores.reduce((a, b) => a + b, 0) / sessionScores.length
+              : null;
+
             return (
               <div key={sn} className={hasSessions ? "mb-8" : ""}>
                 {hasSessions && (
-                  <h3 className="text-lg font-bold text-gray-700 mb-3 border-b border-gray-200 pb-1">
-                    Session {sn}
-                    <span className="text-sm font-normal text-gray-400 ml-2">ペア番号: {sessionPairNumber}</span>
+                  <h3 className="text-lg font-bold text-gray-700 mb-3 border-b border-gray-200 pb-1 flex items-center gap-3">
+                    <span>Session {sn}</span>
+                    <span className="text-sm font-normal text-gray-400">ペア番号: {sessionPairNumber}</span>
+                    {avgScore !== null && (
+                      <span className={`text-sm font-bold ml-auto ${
+                        isIMP
+                          ? (avgScore > 0 ? "text-blue-600" : avgScore < 0 ? "text-red-600" : "text-gray-500")
+                          : (avgScore >= 55 ? "text-blue-600" : avgScore <= 45 ? "text-red-600" : "text-gray-500")
+                      }`}>
+                        平均: {isIMP ? `${avgScore > 0 ? "+" : ""}${avgScore.toFixed(2)} IMP` : `${avgScore.toFixed(1)}%`}
+                      </span>
+                    )}
                   </h3>
+                )}
+                {!hasSessions && avgScore !== null && (
+                  <div className={`mb-3 text-sm font-bold ${
+                    isIMP
+                      ? (avgScore > 0 ? "text-blue-600" : avgScore < 0 ? "text-red-600" : "text-gray-500")
+                      : (avgScore >= 55 ? "text-blue-600" : avgScore <= 45 ? "text-red-600" : "text-gray-500")
+                  }`}>
+                    平均: {isIMP ? `${avgScore > 0 ? "+" : ""}${avgScore.toFixed(2)} IMP` : `${avgScore.toFixed(1)}%`}
+                  </div>
                 )}
                 <div className="grid gap-2 grid-cols-2 sm:grid-cols-4">
                   {sessionBoards.map((board) => {
                     const boardDocId = (board as BoardData & { _docId?: string })._docId || String(board.boardNumber);
-                    const isIMP = tournament.scoringType === "IMP";
-                    const pairId = (tournament as TournamentData & { pairId?: string }).pairId;
                     const myResult = isIMP && pairId
                       ? board.travellers.find(
                           (t) => t.nsId === pairId || t.ewId === pairId
