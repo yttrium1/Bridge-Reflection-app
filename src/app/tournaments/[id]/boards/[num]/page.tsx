@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
@@ -132,27 +132,6 @@ export default function BoardDetailPage() {
     );
   }
 
-  // Swipe navigation (hooks must be before any conditional returns)
-  const touchStart = useRef<{ x: number; y: number } | null>(null);
-  const prevBoardNum = parseInt(boardNum) > 1 ? parseInt(boardNum) - 1 : null;
-  const nextBoardNum = tournament ? (parseInt(boardNum) < tournament.totalBoards ? parseInt(boardNum) + 1 : null) : null;
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-  }, []);
-  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
-    if (!touchStart.current) return;
-    const dx = e.changedTouches[0].clientX - touchStart.current.x;
-    const dy = e.changedTouches[0].clientY - touchStart.current.y;
-    if (Math.abs(dx) > 80 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-      if (dx < 0 && nextBoardNum) {
-        router.push(`/tournaments/${tournamentId}/boards/${nextBoardNum}`);
-      } else if (dx > 0 && prevBoardNum) {
-        router.push(`/tournaments/${tournamentId}/boards/${prevBoardNum}`);
-      }
-    }
-    touchStart.current = null;
-  }, [nextBoardNum, prevBoardNum, router, tournamentId]);
-
   if (!board || !tournament) return null;
 
   const pairNumber = tournament.pairNumber;
@@ -166,57 +145,57 @@ export default function BoardDetailPage() {
     ? myResult?.ewId === pairId
     : myResult?.ew === pairNumber;
 
-  const prevBoard = prevBoardNum;
-  const nextBoard = nextBoardNum;
+  // Navigation
+  const prevBoard = parseInt(boardNum) > 1 ? parseInt(boardNum) - 1 : null;
+  const nextBoard =
+    parseInt(boardNum) < tournament.totalBoards
+      ? parseInt(boardNum) + 1
+      : null;
 
   return (
-    <div className="min-h-screen bg-[#f0f4f1]" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+    <div className="min-h-screen bg-[#f0f4f1]">
       <header className="bg-[#1a5c2e] text-white shadow-md">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+          <div className="flex items-center gap-4">
             <Link
               href={`/tournaments/${tournamentId}`}
-              className="hover:text-green-200 shrink-0"
+              className="hover:text-green-200"
             >
               &larr;
             </Link>
-            <div className="min-w-0">
-              <h1 className="text-base sm:text-lg font-bold">Board {boardNum}</h1>
-              <p className="text-[10px] sm:text-xs text-green-200 truncate">{tournament.name}</p>
+            <div>
+              <h1 className="text-lg font-bold">Board {boardNum}</h1>
+              <p className="text-xs text-green-200">{tournament.name}</p>
             </div>
           </div>
-          <div className="flex gap-1 sm:gap-2 shrink-0">
+          <div className="flex gap-2">
             <Link
               href="/tournaments"
-              className="px-2 sm:px-3 py-1 text-[10px] sm:text-xs rounded bg-white/10 hover:bg-white/20"
+              className="px-3 py-1 text-xs rounded bg-white/10 hover:bg-white/20"
             >
               TOP
             </Link>
             {prevBoard && (
               <Link
                 href={`/tournaments/${tournamentId}/boards/${prevBoard}`}
-                className="px-2 sm:px-3 py-1 text-[10px] sm:text-xs rounded bg-white/10 hover:bg-white/20"
+                className="px-3 py-1 text-xs rounded bg-white/10 hover:bg-white/20"
               >
-                <span className="hidden sm:inline">&larr; Board </span>
-                <span className="sm:hidden">&larr;</span>
-                {prevBoard}
+                &larr; Board {prevBoard}
               </Link>
             )}
             {nextBoard && (
               <Link
                 href={`/tournaments/${tournamentId}/boards/${nextBoard}`}
-                className="px-2 sm:px-3 py-1 text-[10px] sm:text-xs rounded bg-white/10 hover:bg-white/20"
+                className="px-3 py-1 text-xs rounded bg-white/10 hover:bg-white/20"
               >
-                {nextBoard}
-                <span className="hidden sm:inline"> Board &rarr;</span>
-                <span className="sm:hidden">&rarr;</span>
+                Board {nextBoard} &rarr;
               </Link>
             )}
           </div>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-2 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-6">
+      <main className="max-w-5xl mx-auto px-4 py-6 space-y-6">
         {/* My Result Summary */}
         {myResult && (
           <div className="bg-[#c8a84e]/10 border border-[#c8a84e]/30 rounded-xl p-4">
