@@ -45,9 +45,15 @@ function findCliPath(file: string = "dds-single-calc.js"): string {
 function runCli(data: any, file?: string): Promise<any> {
   const cliPath = findCliPath(file);
   return new Promise((resolve, reject) => {
+    const cwd = process.cwd();
     const child = spawn("node", [cliPath], {
       stdio: ["pipe", "pipe", "pipe"],
       timeout: 120000,
+      cwd,
+      env: {
+        ...process.env,
+        NODE_PATH: path.resolve(cwd, "node_modules"),
+      },
     });
 
     let stdout = "";
@@ -58,7 +64,7 @@ function runCli(data: any, file?: string): Promise<any> {
 
     child.on("close", (code: number | null) => {
       if (code !== 0) {
-        reject(new Error(`DDS CLI exited with code ${code}: ${stderr}`));
+        reject(new Error(`DDS CLI exited with code ${code} [cwd:${cwd}, cli:${cliPath}]: ${stderr}`));
       } else {
         try {
           resolve(JSON.parse(stdout));

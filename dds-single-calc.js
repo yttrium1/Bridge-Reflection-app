@@ -24,7 +24,21 @@ async function run() {
   const input = JSON.parse(Buffer.concat(chunks).toString());
   const { hands, leader, trump, trick, mode } = input;
 
-  const { doubleDummySolveTricks, doubleDummySolve } = require("@bridge-tools/dd");
+  // Try multiple paths to find @bridge-tools/dd
+  let dd;
+  const pathsToTry = [
+    "@bridge-tools/dd",
+    require("path").resolve(process.cwd(), "node_modules/@bridge-tools/dd"),
+    require("path").resolve(__dirname, "node_modules/@bridge-tools/dd"),
+  ];
+  for (const p of pathsToTry) {
+    try {
+      dd = require(p);
+      break;
+    } catch { /* try next */ }
+  }
+  if (!dd) throw new Error("Cannot find @bridge-tools/dd");
+  const { doubleDummySolveTricks, doubleDummySolve } = dd;
 
   const deal = {};
   for (const d of ["N", "E", "S", "W"]) {
