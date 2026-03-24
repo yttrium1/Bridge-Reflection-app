@@ -119,7 +119,10 @@ export default function BoardDetailPage() {
     [user, tournamentId, boardNum, board?.comment]
   );
 
-  const ddsResult = useDDS(board?.hands || null);
+  const ddsResult = useDDS(board?.hands || null, {
+    cachedResult: board?.ddsTable || null,
+    firestorePath: user ? { uid: user.uid, tournamentId, boardId: boardNum } : undefined,
+  });
 
   if (authLoading || !user || loading) {
     return (

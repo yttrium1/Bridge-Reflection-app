@@ -25,7 +25,9 @@ export default function SharedBoardPage() {
   const [tournamentDocId, setTournamentDocId] = useState<string>("");
   const [loading, setLoading] = useState(true);
 
-  const ddsResult = useDDS(board?.hands || null);
+  const ddsResult = useDDS(board?.hands || null, {
+    cachedResult: board?.ddsTable || null,
+  });
 
   useEffect(() => {
     const fetchData = async () => {
