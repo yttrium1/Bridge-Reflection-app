@@ -18,11 +18,29 @@ function handsToStringFormat(hand: Record<string, string[]>): string {
   }).join(".");
 }
 
+function findCliPath(): string {
+  const _fs = eval('require')('fs') as typeof import('fs');
+  const cliFile = "dds-worker-cli" + ".js";
+  const candidates = [
+    _path.resolve(process.cwd(), cliFile),
+    _path.resolve(process.cwd(), "..", cliFile),
+    _path.resolve(__dirname, "..", "..", cliFile),
+    _path.resolve(__dirname, "..", "..", "..", cliFile),
+    _path.resolve("/workspace", cliFile),
+    _path.resolve("/app", cliFile),
+  ];
+  for (const p of candidates) {
+    try {
+      if (_fs.existsSync(p)) return p;
+    } catch { /* ignore */ }
+  }
+  // Fallback to cwd
+  return _path.resolve(process.cwd(), cliFile);
+}
+
 function runCli(data: any): Promise<any> {
   return new Promise((resolve, reject) => {
-    // Use string concatenation to prevent bundler from resolving the path statically
-    const cliFile = "dds-worker-cli" + ".js";
-    const cliPath = _path.resolve(process.cwd(), cliFile);
+    const cliPath = findCliPath();
     const child = _cp.spawn("node", [cliPath], {
       stdio: ["pipe", "pipe", "pipe"],
       timeout: 120000, // 2 min timeout

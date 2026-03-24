@@ -8,8 +8,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(result);
   } catch (error) {
     console.error("DDS error:", error);
+    console.error("CWD:", process.cwd());
+    console.error("__dirname:", __dirname);
     return NextResponse.json(
-      { error: "DDS計算に失敗しました" },
+      { error: "DDS計算に失敗しました", details: String(error) },
       { status: 500 }
     );
   }
