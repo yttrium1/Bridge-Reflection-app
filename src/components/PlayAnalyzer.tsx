@@ -350,7 +350,7 @@ export default function PlayAnalyzer({ hands, declarer, trump, contract, myDirec
       </div>
 
       {/* Hand diagram layout (same as HandDiagram component) */}
-      <div className="grid grid-cols-3 grid-rows-3 gap-2 max-w-md mx-auto mb-4">
+      <div className="grid grid-cols-3 grid-rows-3 gap-1 sm:gap-2 max-w-md mx-auto mb-4">
         {/* Top-left: contract info */}
         <div className="col-start-1 row-start-1 flex flex-col justify-center">
           {contract && (
@@ -378,7 +378,7 @@ export default function PlayAnalyzer({ hands, declarer, trump, contract, myDirec
         </div>
         {/* Center - cross layout for played cards */}
         <div className="col-start-2 row-start-2 flex items-center justify-center">
-          <div className="w-28 h-28 border-2 border-[#1a5c2e] rounded-lg bg-[#f0f7f2] relative">
+          <div className="w-20 h-20 sm:w-28 sm:h-28 border-2 border-[#1a5c2e] rounded-lg bg-[#f0f7f2] relative">
             {currentTrick.length === 0 && !isGameOver && (
               <div className="absolute inset-0 flex items-center justify-center text-[10px] text-gray-400">
                 {nextPlayer}がリード
