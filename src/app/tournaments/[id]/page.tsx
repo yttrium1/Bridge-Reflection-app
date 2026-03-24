@@ -10,6 +10,7 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import type { TournamentData, BoardData } from "@/lib/bridge/types";
 import { useDDS } from "@/hooks/useDDS";
 import HandDiagram from "@/components/HandDiagram";
+import WeaknessAnalysis from "@/components/WeaknessAnalysis";
 
 function getContractLevel(contract: string): number {
   const m = contract.match(/^(\d)/);
@@ -98,14 +99,39 @@ export default function TournamentDetailPage() {
           router.push("/tournaments");
           return;
         }
-        setTournament({ id: tDoc.id, ...tDoc.data() } as TournamentData);
+        const tData = { id: tDoc.id, ...tDoc.data() } as TournamentData;
+        setTournament(tData);
 
         const boardsQuery = query(
           collection(db, "users", user.uid, "tournaments", tournamentId, "boards"),
           orderBy("boardNumber")
         );
         const boardsSnap = await getDocs(boardsQuery);
-        setBoards(boardsSnap.docs.map((d) => ({ ...d.data(), _docId: d.id } as BoardData & { _docId: string })));
+        const loadedBoards = boardsSnap.docs.map((d) => ({ ...d.data(), _docId: d.id } as BoardData & { _docId: string }));
+        setBoards(loadedBoards);
+
+        // Cache average score if not yet saved
+        if (tData && tData.avgScore === undefined && loadedBoards.length > 0) {
+          const isImpType = tData.scoringType === "IMP";
+          const isDatType = tData.scoringType === "DAT";
+          const pid = (tData as TournamentData & { pairId?: string }).pairId;
+          const pn = tData.pairNumber;
+          const scores: number[] = [];
+          for (const b of loadedBoards) {
+            const mr = isImpType && pid
+              ? b.travellers.find((t) => t.nsId === pid || t.ewId === pid)
+              : b.travellers.find((t) => t.ns === pn || t.ew === pn);
+            if (!mr) continue;
+            const isNs = isImpType && pid ? mr.nsId === pid : mr.ns === pn;
+            if (isDatType && mr.dat !== undefined) scores.push(isNs ? mr.dat : -mr.dat);
+            else if (isImpType && mr.impPerTable !== undefined) scores.push(mr.impPerTable);
+            else if (!isImpType && !isDatType && mr.mp !== undefined) scores.push(isNs ? mr.mp : (100 - mr.mp));
+          }
+          if (scores.length > 0) {
+            const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+            updateDoc(doc(db, "users", user.uid, "tournaments", tournamentId), { avgScore: avg }).catch(() => {});
+          }
+        }
       } catch (err) {
         console.error("Failed to load tournament:", err);
       } finally {
@@ -235,6 +261,48 @@ export default function TournamentDetailPage() {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-8">
+        {/* Tags & Memo */}
+        <div className="mb-4 flex gap-3 flex-wrap items-start">
+          <div className="flex gap-1.5 items-center flex-wrap">
+            {(tournament.tags || []).map((tag, i) => (
+              <span key={i} className="text-xs px-2.5 py-1 rounded-full bg-[#1a5c2e]/10 text-[#1a5c2e] font-bold flex items-center gap-1">
+                {tag}
+                <button
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    if (!user) return;
+                    const newTags = (tournament.tags || []).filter((_, j) => j !== i);
+                    await updateDoc(doc(db, "users", user.uid, "tournaments", tournamentId), { tags: newTags });
+                    setTournament({ ...tournament, tags: newTags });
+                  }}
+                  className="text-[10px] text-gray-400 hover:text-red-500 ml-0.5"
+                >&times;</button>
+              </span>
+            ))}
+            <button
+              onClick={() => {
+                const tag = prompt("タグを入力（例: 公式, 練習, ペア戦）");
+                if (!tag || !user) return;
+                const newTags = [...(tournament.tags || []), tag.trim()];
+                updateDoc(doc(db, "users", user.uid, "tournaments", tournamentId), { tags: newTags });
+                setTournament({ ...tournament, tags: newTags });
+              }}
+              className="text-xs px-2 py-1 rounded-full border border-dashed border-gray-300 text-gray-400 hover:border-[#1a5c2e] hover:text-[#1a5c2e] transition"
+            >+ タグ</button>
+          </div>
+          <button
+            onClick={() => {
+              const memo = prompt("メモを入力", tournament.memo || "");
+              if (memo === null || !user) return;
+              updateDoc(doc(db, "users", user.uid, "tournaments", tournamentId), { memo });
+              setTournament({ ...tournament, memo });
+            }}
+            className="text-xs px-3 py-1 rounded-lg border border-gray-200 text-gray-500 hover:border-[#1a5c2e] hover:text-[#1a5c2e] transition"
+          >
+            {tournament.memo ? `📝 ${tournament.memo.slice(0, 30)}${tournament.memo.length > 30 ? "..." : ""}` : "📝 メモ追加"}
+          </button>
+        </div>
+
         {/* PDF Results Button */}
         <div className="mb-4 flex gap-2 flex-wrap items-center">
           {tournament.pdfUrls && tournament.pdfUrls.length > 0 ? (
@@ -255,6 +323,10 @@ export default function TournamentDetailPage() {
             </span>
           )}
         </div>
+
+        {/* Weakness Analysis */}
+        <WeaknessAnalysis boards={boards} tournament={tournament} tournamentId={tournamentId} />
+
         {(() => {
           // Group boards by session
           const sessions = new Map<string, (BoardData & { _docId?: string })[]>();

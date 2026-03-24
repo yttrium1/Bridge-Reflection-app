@@ -97,4 +97,7 @@ export interface TournamentData {
   createdAt?: Date;
   sessions?: SessionInfo[];
   pdfUrls?: string[];
+  tags?: string[];
+  memo?: string;
+  avgScore?: number; // cached average MP%/IMP/DAT
 }

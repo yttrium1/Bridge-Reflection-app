@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/lib/firebase";
 import { collection, query, orderBy, getDocs } from "firebase/firestore";
 import type { TournamentData } from "@/lib/bridge/types";
+import PerformanceDashboard from "@/components/PerformanceDashboard";
 
 export default function TournamentsPage() {
   const { user, loading, signOut } = useAuth();
@@ -77,6 +78,14 @@ export default function TournamentsPage() {
           </Link>
         </div>
 
+        {/* Performance Dashboard */}
+        {!loadingData && tournaments.length > 0 && (
+          <PerformanceDashboard
+            tournaments={tournaments}
+            tournamentAverages={new Map(tournaments.filter(t => t.avgScore !== undefined).map(t => [t.id || "", t.avgScore!]))}
+          />
+        )}
+
         {loadingData ? (
           <div className="text-center py-12 text-gray-400">読み込み中...</div>
         ) : tournaments.length === 0 ? (
@@ -104,13 +113,19 @@ export default function TournamentsPage() {
                       {t.name}
                       {t.sessionNumber && !(t.sessions && t.sessions.length > 0) && <span className="text-sm font-normal text-gray-500"> Session {t.sessionNumber}</span>}
                     </h3>
-                    <p className="text-sm text-gray-500 mt-1">{t.date}</p>
+                    <p className="text-sm text-gray-500 mt-1">
+                      {t.date}
+                      {t.tags && t.tags.length > 0 && t.tags.map((tag, i) => (
+                        <span key={i} className="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-[#1a5c2e]/10 text-[#1a5c2e] font-bold">{tag}</span>
+                      ))}
+                    </p>
                     <p className="text-xs text-gray-400 mt-1">
                       ペア番号: {t.pairNumber}
                       {t.partnerName && ` | ${t.partnerName}`}
                       {t.ranking && ` | 順位: ${t.ranking}`}
                       {` | ${t.totalBoards}ボード`}
                     </p>
+                    {t.memo && <p className="text-xs text-gray-400 mt-0.5 italic">{t.memo.slice(0, 50)}{t.memo.length > 50 ? "..." : ""}</p>}
                   </div>
                   <span className="text-gray-300 text-xl">&rarr;</span>
                 </div>
