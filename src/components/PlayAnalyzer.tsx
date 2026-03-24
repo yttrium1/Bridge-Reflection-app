@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import type { BoardHands, Direction, Hand } from "@/lib/bridge/types";
+import { computePlayAnalysisClient } from "@/lib/dds-client";
 import {
   PlayedCard,
   CompletedTrick,
@@ -75,15 +76,10 @@ export default function PlayAnalyzer({ hands, declarer, trump, contract, myDirec
           };
         }
         const trickCards = ct.map(c => ({ suit: c.suit, rank: c.rank }));
-        const res = await fetch("/api/play-analysis", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ hands: handsForApi, currentTrick: trickCards, nextPlayer: np, trump }),
-        });
+        const data = await computePlayAnalysisClient(handsForApi, trickCards, np, trump);
         if (thisVersion !== fetchVersion.current) return;
-        if (res.ok) {
-          const data = await res.json();
-          setAnalysis(data.analysis || []);
+        if (data.analysis) {
+          setAnalysis(data.analysis);
         } else {
           setAnalysis([]);
         }

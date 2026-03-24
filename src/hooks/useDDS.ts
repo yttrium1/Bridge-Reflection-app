@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import type { BoardHands, DDSTable } from "@/lib/bridge/types";
+import { computeDDSTableClient } from "@/lib/dds-client";
 import { db } from "@/lib/firebase";
 import { doc, updateDoc } from "firebase/firestore";
 
@@ -17,7 +18,6 @@ export function useDDS(
   );
   const hasComputed = useRef(false);
 
-  // Use cached result if available
   useEffect(() => {
     if (options?.cachedResult) {
       setDdsTable(options.cachedResult);
@@ -30,7 +30,6 @@ export function useDDS(
   const boardId = options?.firestorePath?.boardId;
 
   useEffect(() => {
-    // Skip if already have result
     if (hasComputed.current || ddsTable) return;
     if (!hands) return;
 
@@ -40,24 +39,12 @@ export function useDDS(
     if (!["N", "E", "S", "W"].every(d => cardCount(hands[d as keyof typeof hands]) === 13)) return;
 
     hasComputed.current = true;
-    const controller = new AbortController();
 
-    async function fetchDDS() {
+    async function compute() {
       try {
-        const response = await fetch("/api/dds", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ hands }),
-          signal: controller.signal,
-        });
-
-        if (!response.ok) {
-          const errBody = await response.json().catch(() => ({}));
-          throw new Error(`DDS API error: ${errBody.details || response.status}`);
-        }
-
-        const result = (await response.json()) as DDSTable;
-        setDdsTable(result);
+        // Use Web Worker (client-side WASM)
+        const result = await computeDDSTableClient(hands as unknown as Record<string, Record<string, string[]>>);
+        setDdsTable(result as unknown as DDSTable);
 
         // Cache in Firestore
         if (uid && tournamentId && boardId) {
@@ -71,15 +58,12 @@ export function useDDS(
           }
         }
       } catch (err) {
-        if ((err as Error).name !== "AbortError") {
-          console.error("DDS calculation failed:", err);
-          hasComputed.current = false;
-        }
+        console.error("DDS calculation failed:", err);
+        hasComputed.current = false;
       }
     }
 
-    fetchDDS();
-    return () => controller.abort();
+    compute();
   }, [hands, ddsTable, uid, tournamentId, boardId]);
 
   return ddsTable;

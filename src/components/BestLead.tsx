@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import type { BoardHands } from "@/lib/bridge/types";
+import { computeBestLeadClient } from "@/lib/dds-client";
 
 const SUIT_DISPLAY: Record<string, { symbol: string; color: string }> = {
   S: { symbol: "\u2660", color: "text-[#1e3a5f]" },
@@ -38,25 +39,19 @@ export default function BestLead({
     else if (contract.includes("\u2666")) trump = "D";
     else if (contract.includes("\u2663")) trump = "C";
 
-    const controller = new AbortController();
+    let cancelled = false;
     setLoading(true);
 
-    fetch("/api/best-lead", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ hands, declarer, trump }),
-      signal: controller.signal,
-    })
-      .then((res) => res.json())
+    computeBestLeadClient(hands as unknown as Record<string, Record<string, string[]>>, declarer, trump)
       .then((data) => {
-        if (data.bestLeads) setResult(data);
+        if (!cancelled && data.bestLeads) setResult(data);
       })
       .catch((err) => {
-        if (err.name !== "AbortError") console.error("Best lead error:", err);
+        if (!cancelled) console.error("Best lead error:", err);
       })
-      .finally(() => setLoading(false));
+      .finally(() => { if (!cancelled) setLoading(false); });
 
-    return () => controller.abort();
+    return () => { cancelled = true; };
   }, [hands, contract, declarer]);
 
   if (!contract || !declarer) return null;
