@@ -83,6 +83,7 @@ export default function TournamentDetailPage() {
   const [boards, setBoards] = useState<BoardData[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploadingPdf, setUploadingPdf] = useState(false);
+  const [filterFavorite, setFilterFavorite] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) router.push("/login");
@@ -327,6 +328,22 @@ export default function TournamentDetailPage() {
         {/* Weakness Analysis */}
         <WeaknessAnalysis boards={boards} tournament={tournament} tournamentId={tournamentId} />
 
+        {/* Favorite Filter */}
+        {boards.some(b => (b as BoardData & { favorite?: boolean }).favorite) && (
+          <div className="mb-4">
+            <button
+              onClick={() => setFilterFavorite(!filterFavorite)}
+              className={`text-sm px-4 py-2 rounded-lg font-bold transition ${
+                filterFavorite
+                  ? "bg-red-100 text-red-600 border-2 border-red-400"
+                  : "bg-white text-gray-500 border border-gray-200 hover:border-red-300"
+              }`}
+            >
+              ⭐ お気に入り{filterFavorite ? "のみ表示中" : "で絞り込み"}
+            </button>
+          </div>
+        )}
+
         {(() => {
           // Group boards by session
           const sessions = new Map<string, (BoardData & { _docId?: string })[]>();
@@ -400,8 +417,11 @@ export default function TournamentDetailPage() {
                   </div>
                 )}
                 <div className="grid gap-2 grid-cols-2 sm:grid-cols-4">
-                  {sessionBoards.map((board) => {
+                  {sessionBoards
+                    .filter(b => !filterFavorite || (b as BoardData & { favorite?: boolean }).favorite)
+                    .map((board) => {
                     const boardDocId = (board as BoardData & { _docId?: string })._docId || String(board.boardNumber);
+                    const isFav = !!(board as BoardData & { favorite?: boolean }).favorite;
                     const myResult = isIMP && pairId
                       ? board.travellers.find(
                           (t) => t.nsId === pairId || t.ewId === pairId
@@ -428,12 +448,12 @@ export default function TournamentDetailPage() {
                       <Link
                         key={boardDocId}
                         href={`/tournaments/${tournamentId}/boards/${boardDocId}`}
-                        className="bg-white rounded-lg shadow-sm px-3 py-2 hover:shadow-md transition-shadow border border-gray-100 block"
+                        className={`bg-white rounded-lg shadow-sm px-3 py-2 hover:shadow-md transition-shadow border-2 block ${isFav ? "border-red-400" : "border-gray-100"}`}
                       >
                         <div className="flex items-center justify-between gap-2">
                           <div className="min-w-0">
                             <div className="flex items-center gap-2">
-                              <span className="text-xs font-bold text-[#1a5c2e]">#{board.boardNumber}</span>
+                              <span className="text-xs font-bold text-[#1a5c2e]">{isFav && "⭐"}#{board.boardNumber}</span>
                               {myResult && (() => {
                                 const decl = myResult.declarer as string;
                                 const declIsMyPair = isNS

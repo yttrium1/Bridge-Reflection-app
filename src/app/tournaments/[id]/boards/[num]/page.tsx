@@ -27,6 +27,7 @@ export default function BoardDetailPage() {
   const [tournament, setTournament] = useState<TournamentData | null>(null);
   const [board, setBoard] = useState<BoardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [favorite, setFavorite] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) router.push("/login");
@@ -55,7 +56,9 @@ export default function BoardDetailPage() {
           )
         );
         if (bDoc.exists()) {
-          setBoard(bDoc.data() as BoardData);
+          const bData = bDoc.data() as BoardData;
+          setBoard(bData);
+          setFavorite(!!(bData as BoardData & { favorite?: boolean }).favorite);
         }
       } catch (err) {
         console.error("Failed to load board:", err);
@@ -119,6 +122,21 @@ export default function BoardDetailPage() {
     [user, tournamentId, boardNum, board?.comment]
   );
 
+  const toggleFavorite = useCallback(async () => {
+    if (!user) return;
+    const newVal = !favorite;
+    setFavorite(newVal);
+    try {
+      await updateDoc(
+        doc(db, "users", user.uid, "tournaments", tournamentId, "boards", boardNum),
+        { favorite: newVal }
+      );
+    } catch (err) {
+      console.error("Failed to toggle favorite:", err);
+      setFavorite(!newVal);
+    }
+  }, [user, tournamentId, boardNum, favorite]);
+
   const ddsResult = useDDS(board?.hands || null, {
     cachedResult: board?.ddsTable || null,
     firestorePath: user ? { uid: user.uid, tournamentId, boardId: boardNum } : undefined,
@@ -167,7 +185,16 @@ export default function BoardDetailPage() {
               &larr;
             </Link>
             <div>
-              <h1 className="text-lg font-bold">Board {currentNum}{sessionMatch ? ` (S${sessionMatch[1]})` : ""}</h1>
+              <h1 className="text-lg font-bold flex items-center gap-2">
+                Board {currentNum}{sessionMatch ? ` (S${sessionMatch[1]})` : ""}
+                <button
+                  onClick={toggleFavorite}
+                  className="text-xl leading-none hover:scale-110 transition-transform"
+                  title={favorite ? "お気に入り解除" : "お気に入り登録"}
+                >
+                  {favorite ? "⭐" : "☆"}
+                </button>
+              </h1>
               <p className="text-xs text-green-200">{tournament.name}</p>
             </div>
           </div>
