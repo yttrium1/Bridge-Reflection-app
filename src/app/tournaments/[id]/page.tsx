@@ -177,7 +177,7 @@ export default function TournamentDetailPage() {
             <div>
               <h1 className="text-lg font-bold">
                 {tournament.name}
-                {tournament.sessionNumber && ` Session ${tournament.sessionNumber}`}
+                {tournament.sessionNumber && !(tournament.sessions && tournament.sessions.length > 0) && ` Session ${tournament.sessionNumber}`}
               </h1>
               <p className="text-xs text-green-200">
                 {tournament.date} | ペア番号: {pairNumber}
