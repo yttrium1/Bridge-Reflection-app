@@ -34,11 +34,13 @@ async function run() {
   for (const ddPath of ddPaths) {
     const wasmSrc = pathMod.resolve(ddPath, "wasm/compiled.wasm");
     const wasmDst = pathMod.resolve(ddPath, "dist/compiled.wasm");
-    if (fsMod.existsSync(wasmSrc) && !fsMod.existsSync(wasmDst)) {
-      try {
+    try {
+      if (fsMod.existsSync(wasmSrc) && !fsMod.existsSync(wasmDst)) {
         fsMod.mkdirSync(pathMod.resolve(ddPath, "dist"), { recursive: true });
         fsMod.copyFileSync(wasmSrc, wasmDst);
-      } catch { /* ignore */ }
+      }
+    } catch (e) {
+      process.stderr.write("WASM copy warning: " + e.message + "\n");
     }
   }
 
@@ -56,6 +58,11 @@ async function run() {
     } catch { /* try next */ }
   }
   if (!dd) throw new Error("Cannot find @bridge-tools/dd in: " + pathsToTry.join(", "));
+
+  // Verify WASM loaded correctly by checking exports
+  if (typeof dd.doubleDummySolveTricks !== "function") {
+    throw new Error("@bridge-tools/dd loaded but doubleDummySolveTricks is not a function. Available: " + Object.keys(dd).join(","));
+  }
   const { doubleDummySolveTricks, doubleDummySolve } = dd;
 
   const deal = {};

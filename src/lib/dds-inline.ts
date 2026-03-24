@@ -160,12 +160,21 @@ export async function computeBestLead(
   }
 
   const leader = LHO[declarer];
-  const results = await runCli({
-    mode: "solve",
-    hands: handStrings,
-    leader,
-    trump,
-  }, "dds-single-calc.js");
+  let results: any;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      if (attempt > 0) await new Promise(r => setTimeout(r, 500 * attempt));
+      results = await runCli({
+        mode: "solve",
+        hands: handStrings,
+        leader,
+        trump,
+      }, "dds-single-calc.js");
+      break;
+    } catch (err) {
+      if (attempt === 2) throw err;
+    }
+  }
 
   const maxTricks = Math.max(...results.map((r: any) => r.result));
   const bestLeads = results
@@ -203,14 +212,23 @@ export async function computePlayAnalysis(
     rank: c.rank === "10" ? "T" : c.rank,
   }));
 
-  const results = await runCli({
-    mode: "solve",
-    hands: handStrings,
-    leader: nextPlayer,
-    trump,
-    trick,
-    partial: true,
-  }, "dds-single-calc.js");
+  let results: any;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      if (attempt > 0) await new Promise(r => setTimeout(r, 500 * attempt));
+      results = await runCli({
+        mode: "solve",
+        hands: handStrings,
+        leader: nextPlayer,
+        trump,
+        trick,
+        partial: true,
+      }, "dds-single-calc.js");
+      break;
+    } catch (err) {
+      if (attempt === 2) throw err;
+    }
+  }
 
   const analysis = results.map((r: any) => ({
     suit: r.card.suit,
