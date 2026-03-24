@@ -133,6 +133,7 @@ export default function BoardDetailPage() {
 
   const pairNumber = tournament.pairNumber;
   const isIMP = tournament.scoringType === "IMP";
+  const isDAT = tournament.scoringType === "DAT";
   const pairId = (tournament as TournamentData & { pairId?: string }).pairId;
   const myResult = isIMP && pairId
     ? board.travellers.find((t) => t.nsId === pairId || t.ewId === pairId)
@@ -299,7 +300,20 @@ export default function BoardDetailPage() {
                 );
               })()}
               <div className="text-right">
-                {isIMP ? (
+                {isDAT ? (
+                  <>
+                    <div className="text-sm text-gray-500">DAT</div>
+                    {(() => {
+                      const datVal = myResult.dat || 0;
+                      const myDat = isEW ? -datVal : datVal;
+                      return (
+                        <div className={`text-2xl font-bold ${myDat > 0 ? "text-blue-600" : myDat < 0 ? "text-red-600" : "text-gray-700"}`}>
+                          {myDat > 0 ? "+" : ""}{myDat}
+                        </div>
+                      );
+                    })()}
+                  </>
+                ) : isIMP ? (
                   <>
                     <div className="text-sm text-gray-500">IMP/T</div>
                     {(() => {
@@ -380,7 +394,7 @@ export default function BoardDetailPage() {
         )}
 
         {/* Traveller Table */}
-        <TravellerTable travellers={board.travellers} pairNumber={pairNumber} isEW={isEW} />
+        <TravellerTable travellers={board.travellers} pairNumber={pairNumber} isEW={isEW} scoringType={tournament.scoringType} />
       </main>
     </div>
   );

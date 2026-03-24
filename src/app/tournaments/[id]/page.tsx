@@ -275,6 +275,7 @@ export default function TournamentDetailPage() {
           return sessionEntries.map(([sn, sessionBoards]) => {
             const sessionPairNumber = getSessionPairNumber(sn);
             const isIMP = tournament.scoringType === "IMP";
+            const isDAT = tournament.scoringType === "DAT";
             const pairId = (tournament as TournamentData & { pairId?: string }).pairId;
 
             // Calculate session average
@@ -288,10 +289,11 @@ export default function TournamentDetailPage() {
                 ? myResult.nsId === pairId
                 : myResult.ns === sessionPairNumber;
 
-              if (isIMP && myResult.impPerTable !== undefined) {
+              if (isDAT && myResult.dat !== undefined) {
+                sessionScores.push(isNS ? myResult.dat : -myResult.dat);
+              } else if (isIMP && myResult.impPerTable !== undefined) {
                 sessionScores.push(myResult.impPerTable);
-              } else if (!isIMP && myResult.mp !== undefined) {
-                // MP% is NS perspective (calculated or from data)
+              } else if (!isIMP && !isDAT && myResult.mp !== undefined) {
                 sessionScores.push(isNS ? myResult.mp : (100 - myResult.mp));
               }
             }
@@ -307,22 +309,22 @@ export default function TournamentDetailPage() {
                     <span className="text-sm font-normal text-gray-400">ペア番号: {sessionPairNumber}</span>
                     {avgScore !== null && (
                       <span className={`text-sm font-bold ml-auto ${
-                        isIMP
+                        isIMP || isDAT
                           ? (avgScore > 0 ? "text-blue-600" : avgScore < 0 ? "text-red-600" : "text-gray-500")
                           : (avgScore >= 55 ? "text-blue-600" : avgScore <= 45 ? "text-red-600" : "text-gray-500")
                       }`}>
-                        平均: {isIMP ? `${avgScore > 0 ? "+" : ""}${avgScore.toFixed(2)} IMP` : `${avgScore.toFixed(1)}%`}
+                        平均: {isDAT ? `${avgScore > 0 ? "+" : ""}${avgScore.toFixed(1)} DAT` : isIMP ? `${avgScore > 0 ? "+" : ""}${avgScore.toFixed(2)} IMP` : `${avgScore.toFixed(1)}%`}
                       </span>
                     )}
                   </h3>
                 )}
                 {!hasSessions && avgScore !== null && (
                   <div className={`mb-3 text-sm font-bold ${
-                    isIMP
+                    isIMP || isDAT
                       ? (avgScore > 0 ? "text-blue-600" : avgScore < 0 ? "text-red-600" : "text-gray-500")
                       : (avgScore >= 55 ? "text-blue-600" : avgScore <= 45 ? "text-red-600" : "text-gray-500")
                   }`}>
-                    平均: {isIMP ? `${avgScore > 0 ? "+" : ""}${avgScore.toFixed(2)} IMP` : `${avgScore.toFixed(1)}%`}
+                    平均: {isDAT ? `${avgScore > 0 ? "+" : ""}${avgScore.toFixed(1)} DAT` : isIMP ? `${avgScore > 0 ? "+" : ""}${avgScore.toFixed(2)} IMP` : `${avgScore.toFixed(1)}%`}
                   </div>
                 )}
                 <div className="grid gap-2 grid-cols-2 sm:grid-cols-4">
@@ -387,7 +389,14 @@ export default function TournamentDetailPage() {
                               </div>
                             )}
                           </div>
-                          {mp !== undefined && !isIMP && (
+                          {isDAT && myResult?.dat !== undefined && (
+                            <div className={`text-sm font-bold shrink-0 ${
+                              (isNS ? myResult.dat : -myResult.dat) > 0 ? "text-blue-600" : (isNS ? myResult.dat : -myResult.dat) < 0 ? "text-red-600" : "text-gray-500"
+                            }`}>
+                              {(() => { const d = isNS ? myResult.dat : -myResult.dat; return d > 0 ? `+${d}` : String(d); })()}
+                            </div>
+                          )}
+                          {mp !== undefined && !isIMP && !isDAT && (
                             <div className={`text-sm font-bold shrink-0 ${mp >= 60 ? "text-blue-600" : mp <= 40 ? "text-red-600" : "text-gray-500"}`}>
                               {mp.toFixed(0)}%
                             </div>

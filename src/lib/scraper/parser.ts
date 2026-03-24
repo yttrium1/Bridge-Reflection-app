@@ -164,6 +164,7 @@ export function detectScoringType($: cheerio.CheerioAPI): ScoringType {
   if (!table.length) return "MP";
   const headerRow = table.find("tr").eq(1);
   const headerText = headerRow.text();
+  if (headerText.includes("DAT")) return "DAT";
   if (headerText.includes("IMP")) return "IMP";
   return "MP";
 }
@@ -176,7 +177,90 @@ export function parseTravellerTable($: cheerio.CheerioAPI, scoringType?: Scoring
   const detectedType = scoringType || detectScoringType($);
   const trs = table.find("tr");
 
-  if (detectedType === "IMP_NS") {
+  if (detectedType === "DAT") {
+    // DAT (Datum) format: NS | EW | Contract | MD | OL | PLUS | MINUS | DAT
+    // From screenshot: columns are NS, EW, Contract, By(declarer), MD, OL, PLUS, MINUS, DAT
+    // But the header row shows: NS | EW | Contract | MD | OL | PLUS | MINUS | DAT
+    // The "By" direction appears to be embedded before MD
+    // Looking more carefully: 3♠ | S | 4 | ♥Q means Contract=3♠, Declarer=S, MD=4, OL=♥Q
+    trs.each((index, tr) => {
+      if (index < 2) return;
+
+      const cells = $(tr).find("td");
+      if (cells.length < 7) return;
+
+      const ns = parseInt(cells.eq(0).text().trim()) || 0;
+      const ew = parseInt(cells.eq(1).text().trim()) || 0;
+      const contract = extractContract($, cells.eq(2));
+
+      // Detect column layout by checking if cell 3 is a direction letter
+      const cell3Text = cells.eq(3).text().trim();
+      let declarer = "";
+      let mdCellIdx = 3;
+      let olCellIdx = 4;
+      let plusCellIdx = 5;
+      let minusCellIdx = 6;
+      let datCellIdx = 7;
+
+      if (["N", "E", "S", "W"].includes(cell3Text)) {
+        // Layout: NS | EW | Contract | By | MD | OL | PLUS | MINUS | DAT
+        declarer = cell3Text;
+        mdCellIdx = 4;
+        olCellIdx = 5;
+        plusCellIdx = 6;
+        minusCellIdx = 7;
+        datCellIdx = 8;
+      }
+
+      const mdText = cells.eq(mdCellIdx).text().trim();
+      const rawResult = parseInt(mdText) || 0;
+      const contractLevel = parseInt(contract.replace(/[^0-9]/g, "")) || 0;
+      const result = mdText.startsWith("-") ? rawResult : (rawResult > 0 ? rawResult - contractLevel : 0);
+
+      // OL (Opening Lead) - may contain suit image
+      let openingLead = "";
+      if (cells.length > olCellIdx) {
+        const olCell = cells.eq(olCellIdx);
+        const olImg = olCell.find("img");
+        if (olImg.length) {
+          const src = olImg.attr("src") || "";
+          const suit = parseSuitFromImg(src);
+          const suitSymbol: Record<string, string> = { S: "\u2660", H: "\u2665", D: "\u2666", C: "\u2663" };
+          openingLead = (suitSymbol[suit] || "") + olCell.text().trim();
+        } else {
+          openingLead = olCell.text().trim();
+        }
+      }
+
+      // PLUS and MINUS columns
+      const plusText = cells.length > plusCellIdx ? cells.eq(plusCellIdx).text().trim() : "0";
+      const minusText = cells.length > minusCellIdx ? cells.eq(minusCellIdx).text().trim() : "0";
+      const plusScore = parseInt(plusText) || 0;
+      const minusScore = parseInt(minusText) || 0;
+
+      // NS score: positive from PLUS, negative from MINUS
+      const nsScore = plusScore > 0 ? plusScore : (minusScore > 0 ? -minusScore : 0);
+
+      // DAT column
+      const datText = cells.length > datCellIdx ? cells.eq(datCellIdx).text().trim() : "0";
+      const dat = parseFloat(datText) || 0;
+
+      if (contract) {
+        rows.push({
+          ns,
+          ew,
+          contract,
+          declarer,
+          result,
+          nsScore,
+          ewScore: nsScore > 0 ? 0 : Math.abs(nsScore),
+          mp: 0,
+          dat,
+          openingLead,
+        });
+      }
+    });
+  } else if (detectedType === "IMP_NS") {
     // IMP NS番号順 format: NS | EW | Contract | MD | N-S | E-W | IMP | IMP/T
     // NS/EW are pair IDs like "A01", "B12"
     trs.each((index, tr) => {

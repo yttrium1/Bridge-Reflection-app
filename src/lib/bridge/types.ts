@@ -32,9 +32,11 @@ export interface TravellerRow {
   imp?: number;
   impPerTable?: number;
   tie?: number;
+  dat?: number;
+  openingLead?: string;
 }
 
-export type ScoringType = "MP" | "IMP";
+export type ScoringType = "MP" | "IMP" | "DAT";
 
 export interface DDSTable {
   N: Record<Denomination, number>;

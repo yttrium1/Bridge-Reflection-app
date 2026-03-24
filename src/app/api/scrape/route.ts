@@ -31,10 +31,13 @@ export async function POST(request: NextRequest) {
       firstPage = { ...initial, $: nsSorted.$, fields: nsSorted.fields };
     }
 
+    // Determine parser type based on scoring
+    const parserType = scoringType === "IMP" ? "IMP_NS" : scoringType;
+
     // Parse first board
     const handText = firstPage.$("#txtHand").val() as string || "";
     const handData = parseHandRecord(handText);
-    const travellers = parseTravellerTable(firstPage.$, "IMP_NS");
+    const travellers = parseTravellerTable(firstPage.$, parserType);
 
     boards.push({
       ...handData,
@@ -61,7 +64,7 @@ export async function POST(request: NextRequest) {
           const nsSorted = await switchToNsSortView(fullUrl, result.fields, boardNum);
           boardPage = nsSorted;
         }
-        const boardTravellers = parseTravellerTable(boardPage.$, scoringType === "IMP" ? "IMP_NS" : undefined);
+        const boardTravellers = parseTravellerTable(boardPage.$, parserType);
 
         boards.push({
           ...boardHandData,
