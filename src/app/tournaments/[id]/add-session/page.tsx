@@ -113,7 +113,7 @@ export default function AddSessionPage() {
               セッションのURL（fitsys.jp）
             </label>
             <input
-              type="url"
+              type="text"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               required

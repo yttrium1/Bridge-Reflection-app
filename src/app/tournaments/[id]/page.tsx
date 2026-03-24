@@ -362,26 +362,44 @@ export default function TournamentDetailPage() {
 
         {/* Hand Records */}
         <h3 className="text-lg font-bold text-gray-700 mt-8 mb-4">Hand Records</h3>
-        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-          {boards.map((board) => {
-            const boardDocId = (board as BoardData & { _docId?: string })._docId || String(board.boardNumber);
-            return (
-              <Link
-                key={`hand-${boardDocId}`}
-                href={`/tournaments/${tournamentId}/boards/${boardDocId}`}
-                className="block hover:shadow-md transition-shadow"
-              >
-                <HandDiagram
-                  hands={board.hands}
-                  dealer={board.dealer}
-                  vulnerability={board.vulnerability}
-                  boardNumber={board.boardNumber}
-                  compact
-                />
-              </Link>
-            );
-          })}
-        </div>
+        {(() => {
+          const hrSessions = new Map<string, (BoardData & { _docId?: string })[]>();
+          for (const board of boards) {
+            const sn = (board as BoardData & { sessionNumber?: string }).sessionNumber || tournament.sessionNumber || "1";
+            if (!hrSessions.has(sn)) hrSessions.set(sn, []);
+            hrSessions.get(sn)!.push(board);
+          }
+          const hrEntries = Array.from(hrSessions.entries()).sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }));
+          const hasMultiple = hrEntries.length > 1;
+
+          return hrEntries.map(([sn, sessionBoards]) => (
+            <div key={`hr-${sn}`} className={hasMultiple ? "mb-6" : ""}>
+              {hasMultiple && (
+                <h4 className="text-sm font-bold text-gray-500 mb-2">Session {sn}</h4>
+              )}
+              <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                {sessionBoards.map((board) => {
+                  const boardDocId = (board as BoardData & { _docId?: string })._docId || String(board.boardNumber);
+                  return (
+                    <Link
+                      key={`hand-${boardDocId}`}
+                      href={`/tournaments/${tournamentId}/boards/${boardDocId}`}
+                      className="block hover:shadow-md transition-shadow"
+                    >
+                      <HandDiagram
+                        hands={board.hands}
+                        dealer={board.dealer}
+                        vulnerability={board.vulnerability}
+                        boardNumber={board.boardNumber}
+                        compact
+                      />
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ));
+        })()}
 
         {/* Edit History */}
         {(() => {

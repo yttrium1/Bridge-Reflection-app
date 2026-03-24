@@ -165,6 +165,12 @@ export default function BoardDetailPage() {
             </div>
           </div>
           <div className="flex gap-2">
+            <Link
+              href="/tournaments"
+              className="px-3 py-1 text-xs rounded bg-white/10 hover:bg-white/20"
+            >
+              TOP
+            </Link>
             {prevBoard && (
               <Link
                 href={`/tournaments/${tournamentId}/boards/${prevBoard}`}

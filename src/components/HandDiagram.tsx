@@ -12,15 +12,15 @@ const SUIT_SYMBOLS: Record<string, { symbol: string; color: string }> = {
 function HandDisplay({ hand, label, compact, isMe }: { hand: { S: string[]; H: string[]; D: string[]; C: string[] }; label: string; compact?: boolean; isMe?: boolean }) {
   return (
     <div className="leading-snug">
-      <div className={`font-bold mb-0.5 ${compact ? "text-[10px]" : "text-xs"} ${isMe ? "text-yellow-600" : "text-gray-400"}`}>
+      <div className={`font-bold mb-0.5 ${compact ? "text-[11px]" : "text-xs"} ${isMe ? "text-yellow-600" : "text-gray-400"}`}>
         {label}{isMe && !compact && " ★"}
       </div>
       {(["S", "H", "D", "C"] as const).map((suit) => (
         <div key={suit} className="flex items-center gap-0.5 whitespace-nowrap">
-          <span className={`font-bold ${SUIT_SYMBOLS[suit].color} ${compact ? "text-xs" : "text-lg"}`}>
+          <span className={`font-bold ${SUIT_SYMBOLS[suit].color} ${compact ? "text-sm" : "text-lg"}`}>
             {SUIT_SYMBOLS[suit].symbol}
           </span>
-          <span className={`font-mono tracking-tighter ${compact ? "text-[11px]" : "text-base"}`}>
+          <span className={`font-mono tracking-tighter ${compact ? "text-xs" : "text-base"}`}>
             {hand[suit].length > 0 ? hand[suit].join("") : "\u2014"}
           </span>
         </div>
