@@ -34,11 +34,14 @@ export default function WeaknessAnalysis({
   boards,
   tournament,
   tournamentId,
+  boardLinkPrefix,
 }: {
   boards: (BoardData & { _docId?: string })[];
   tournament: TournamentData;
   tournamentId: string;
+  boardLinkPrefix?: string;
 }) {
+  const linkBase = boardLinkPrefix || `/tournaments/${tournamentId}/boards`;
   const pairNumber = tournament.pairNumber;
   const isIMP = tournament.scoringType === "IMP";
   const pairId = (tournament as TournamentData & { pairId?: string }).pairId;
@@ -152,7 +155,7 @@ export default function WeaknessAnalysis({
             {worstBoards.map((b) => (
               <Link
                 key={b.boardDocId}
-                href={`/tournaments/${tournamentId}/boards/${b.boardDocId}`}
+                href={`${linkBase}/${b.boardDocId}`}
                 className="flex items-center gap-2 text-xs py-1.5 px-2 rounded hover:bg-red-50 transition"
               >
                 <span className="font-bold text-gray-700 w-8">#{b.boardNumber}</span>
@@ -182,7 +185,7 @@ export default function WeaknessAnalysis({
             {bestBoards.map((b) => (
               <Link
                 key={b.boardDocId}
-                href={`/tournaments/${tournamentId}/boards/${b.boardDocId}`}
+                href={`${linkBase}/${b.boardDocId}`}
                 className="flex items-center gap-2 text-xs py-1.5 px-2 rounded hover:bg-blue-50 transition"
               >
                 <span className="font-bold text-gray-700 w-8">#{b.boardNumber}</span>

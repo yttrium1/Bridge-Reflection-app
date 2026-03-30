@@ -6,6 +6,7 @@ import Link from "next/link";
 import { db } from "@/lib/firebase";
 import { collectionGroup, query, where, getDocs, collection, orderBy } from "firebase/firestore";
 import type { TournamentData, BoardData } from "@/lib/bridge/types";
+import WeaknessAnalysis from "@/components/WeaknessAnalysis";
 
 export default function SharedTournamentPage() {
   const params = useParams();
@@ -98,6 +99,26 @@ export default function SharedTournamentPage() {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-8">
+        {/* PDF Results */}
+        {tournament.pdfUrls && tournament.pdfUrls.length > 0 && (
+          <div className="mb-4 flex gap-2 flex-wrap items-center">
+            {tournament.pdfUrls.map((url, i) => (
+              <a
+                key={i}
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm px-4 py-2 rounded-lg bg-[#1a5c2e] text-white hover:bg-[#2d8a4e] transition inline-flex items-center gap-1.5 font-bold"
+              >
+                📄 結果{tournament.pdfUrls!.length > 1 ? ` ${i + 1}` : ""}
+              </a>
+            ))}
+          </div>
+        )}
+
+        {/* Weakness Analysis */}
+        <WeaknessAnalysis boards={boards} tournament={tournament} tournamentId={tournamentId || ""} boardLinkPrefix={`/shared/${token}/boards`} />
+
         {(() => {
           // Group boards by session
           const sessions = new Map<string, (BoardData & { _docId?: string })[]>();
