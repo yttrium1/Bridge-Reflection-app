@@ -12,7 +12,9 @@ import DDSTable from "@/components/DDSTable";
 import BestLead from "@/components/BestLead";
 import BiddingBox, { type BiddingEntry } from "@/components/BiddingBox";
 import CommentEditor from "@/components/CommentEditor";
+import PlayAnalyzer from "@/components/PlayAnalyzer";
 import { useDDS } from "@/hooks/useDDS";
+import { contractToTrump } from "@/lib/bridge/play-utils";
 
 export default function SharedBoardPage() {
   const params = useParams();
@@ -133,8 +135,18 @@ export default function SharedBoardPage() {
   );
   const isEW = myResult ? myResult.ew === pairNumber : false;
 
-  const prevBoard = parseInt(boardNum) > 1 ? parseInt(boardNum) - 1 : null;
-  const nextBoard = parseInt(boardNum) < tournament.totalBoards ? parseInt(boardNum) + 1 : null;
+  // Navigation: handle both "7" (session 1) and "s2-7" (session 2+) formats
+  const sessionMatch = boardNum.match(/^s(\d+)-(\d+)$/);
+  const sessionPrefix = sessionMatch ? `s${sessionMatch[1]}-` : "";
+  const currentNum = sessionMatch ? parseInt(sessionMatch[2]) : parseInt(boardNum);
+  const sessionTotal = sessionMatch
+    ? (tournament.sessions?.find(s => s.sessionNumber === sessionMatch[1])?.totalBoards ?? tournament.totalBoards)
+    : tournament.totalBoards;
+  const prevBoard = currentNum > 1 ? `${sessionPrefix}${currentNum - 1}` : null;
+  const nextBoard = currentNum < sessionTotal ? `${sessionPrefix}${currentNum + 1}` : null;
+
+  // Determine myDirections for PlayAnalyzer
+  const myDirections: ("N" | "E" | "S" | "W")[] = isEW ? ["E", "W"] : ["N", "S"];
 
   return (
     <div className="min-h-screen bg-[#f0f4f1]">
@@ -143,7 +155,7 @@ export default function SharedBoardPage() {
           <div className="flex items-center gap-4">
             <Link href={`/shared/${token}`} className="hover:text-green-200">&larr;</Link>
             <div>
-              <h1 className="text-lg font-bold">Board {boardNum}</h1>
+              <h1 className="text-lg font-bold">Board {currentNum}{sessionMatch ? ` (S${sessionMatch[1]})` : ""}</h1>
               <p className="text-xs text-green-200">
                 {tournament.name}
                 <span className="ml-2 px-1.5 py-0.5 bg-white/20 rounded text-[10px]">共有</span>
@@ -153,12 +165,12 @@ export default function SharedBoardPage() {
           <div className="flex gap-2">
             {prevBoard && (
               <Link href={`/shared/${token}/boards/${prevBoard}`} className="px-3 py-1 text-xs rounded bg-white/10 hover:bg-white/20">
-                &larr; B{prevBoard}
+                &larr; Board {currentNum - 1}
               </Link>
             )}
             {nextBoard && (
               <Link href={`/shared/${token}/boards/${nextBoard}`} className="px-3 py-1 text-xs rounded bg-white/10 hover:bg-white/20">
-                B{nextBoard} &rarr;
+                Board {currentNum + 1} &rarr;
               </Link>
             )}
           </div>
@@ -222,6 +234,18 @@ export default function SharedBoardPage() {
             onCommentChange={saveComment}
           />
         </div>
+
+        {/* Play Analysis */}
+        {myResult && myResult.contract && myResult.declarer && (
+          <PlayAnalyzer
+            hands={board.hands}
+            declarer={myResult.declarer as "N" | "E" | "S" | "W"}
+            trump={contractToTrump(myResult.contract)}
+            contract={myResult.contract}
+            myDirections={myDirections}
+            bidding={board.bidding}
+          />
+        )}
 
         <TravellerTable travellers={board.travellers} pairNumber={pairNumber} isEW={isEW} />
       </main>

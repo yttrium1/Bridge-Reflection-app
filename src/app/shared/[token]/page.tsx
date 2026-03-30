@@ -49,7 +49,7 @@ export default function SharedTournamentPage() {
           orderBy("boardNumber")
         );
         const boardsSnap = await getDocs(boardsQuery);
-        setBoards(boardsSnap.docs.map((d) => d.data() as BoardData));
+        setBoards(boardsSnap.docs.map((d) => ({ ...d.data(), _docId: d.id } as BoardData & { _docId: string })));
       } catch (err) {
         console.error("Failed to load shared data:", err);
         setError("データの読み込みに失敗しました");
@@ -98,48 +98,79 @@ export default function SharedTournamentPage() {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-8">
-        <div className="grid gap-2 grid-cols-2 sm:grid-cols-4 lg:grid-cols-8">
-          {boards.map((board) => {
-            const myResult = board.travellers.find(
-              (t) => t.ns === pairNumber || t.ew === pairNumber
-            );
-            const isNS = myResult?.ns === pairNumber;
-            const rawMp = myResult?.mp;
-            const mp = rawMp !== undefined ? (isNS ? rawMp : 100 - rawMp) : undefined;
-            const resultDisplay = myResult
-              ? myResult.result > 0 ? `+${myResult.result}` : myResult.result === 0 ? "=" : String(myResult.result)
-              : "";
+        {(() => {
+          // Group boards by session
+          const sessions = new Map<string, (BoardData & { _docId?: string })[]>();
+          for (const board of boards) {
+            const sn = (board as BoardData & { sessionNumber?: string }).sessionNumber || tournament.sessionNumber || "1";
+            if (!sessions.has(sn)) sessions.set(sn, []);
+            sessions.get(sn)!.push(board);
+          }
+          const sessionEntries = Array.from(sessions.entries()).sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }));
+          const hasSessions = sessionEntries.length > 1;
 
+          const getSessionPairNumber = (sn: string): number => {
+            const sessionInfo = tournament.sessions?.find(s => s.sessionNumber === sn);
+            return sessionInfo?.pairNumber || tournament.pairNumber;
+          };
+
+          return sessionEntries.map(([sn, sessionBoards]) => {
+            const sessionPairNumber = getSessionPairNumber(sn);
             return (
-              <Link
-                key={board.boardNumber}
-                href={`/shared/${token}/boards/${board.boardNumber}`}
-                className="bg-white rounded-lg shadow-sm px-3 py-2 hover:shadow-md transition-shadow border border-gray-100 block"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-[#1a5c2e]">B{board.boardNumber}</span>
-                      {myResult && (
-                        <span className="text-xs text-gray-500">
-                          {myResult.contract} {myResult.declarer}{" "}
-                          <span className={myResult.result < 0 ? "text-red-600" : myResult.result > 0 ? "text-blue-600" : ""}>
-                            {resultDisplay}
-                          </span>
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  {mp !== undefined && (
-                    <div className={`text-sm font-bold shrink-0 ${mp >= 60 ? "text-blue-600" : mp <= 40 ? "text-red-600" : "text-gray-500"}`}>
-                      {mp.toFixed(0)}%
-                    </div>
-                  )}
+              <div key={sn} className={hasSessions ? "mb-6" : ""}>
+                {hasSessions && (
+                  <h3 className="text-lg font-bold text-gray-700 mb-3 border-b border-gray-200 pb-1">
+                    <span>Session {sn}</span>
+                    <span className="text-sm font-normal text-gray-400 ml-3">ペア番号: {sessionPairNumber}</span>
+                  </h3>
+                )}
+                <div className="grid gap-2 grid-cols-2 sm:grid-cols-4">
+                  {sessionBoards.map((board) => {
+                    const boardDocId = (board as BoardData & { _docId?: string })._docId || String(board.boardNumber);
+                    const myResult = board.travellers.find(
+                      (t) => t.ns === sessionPairNumber || t.ew === sessionPairNumber
+                    );
+                    const isNS = myResult?.ns === sessionPairNumber;
+                    const rawMp = myResult?.mp;
+                    const mp = rawMp !== undefined ? (isNS ? rawMp : 100 - rawMp) : undefined;
+                    const resultDisplay = myResult
+                      ? myResult.result > 0 ? `+${myResult.result}` : myResult.result === 0 ? "=" : String(myResult.result)
+                      : "";
+
+                    return (
+                      <Link
+                        key={boardDocId}
+                        href={`/shared/${token}/boards/${boardDocId}`}
+                        className="bg-white rounded-lg shadow-sm px-3 py-2 hover:shadow-md transition-shadow border border-gray-100 block"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-[#1a5c2e]">#{board.boardNumber}</span>
+                              {myResult && (
+                                <span className="text-xs text-gray-500">
+                                  {myResult.contract} {myResult.declarer}{" "}
+                                  <span className={myResult.result < 0 ? "text-red-600" : myResult.result > 0 ? "text-blue-600" : ""}>
+                                    {resultDisplay}
+                                  </span>
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          {mp !== undefined && (
+                            <div className={`text-sm font-bold shrink-0 ${mp >= 60 ? "text-blue-600" : mp <= 40 ? "text-red-600" : "text-gray-500"}`}>
+                              {mp.toFixed(0)}%
+                            </div>
+                          )}
+                        </div>
+                      </Link>
+                    );
+                  })}
                 </div>
-              </Link>
+              </div>
             );
-          })}
-        </div>
+          });
+        })()}
       </main>
     </div>
   );
