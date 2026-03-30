@@ -28,7 +28,7 @@ export default function SharedBoardPage() {
   const [loading, setLoading] = useState(true);
 
   // 共有ページではFirestoreキャッシュ書き込みしない（権限なし）
-  const ddsResult = useDDS(board?.hands || null, {
+  const { ddsTable: ddsResult, progress: ddsProgress } = useDDS(board?.hands || null, {
     cachedResult: board?.ddsTable || null,
   });
 
@@ -218,7 +218,7 @@ export default function SharedBoardPage() {
             boardNumber={board.boardNumber}
           />
           <div className="flex flex-col gap-3">
-            <DDSTable ddsTable={ddsResult || board.ddsTable} />
+            <DDSTable ddsTable={ddsResult || board.ddsTable} progress={ddsProgress} />
             <BestLead hands={board.hands} contract={myResult?.contract} declarer={myResult?.declarer} />
           </div>
         </div>

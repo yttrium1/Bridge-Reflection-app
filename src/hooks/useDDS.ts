@@ -6,21 +6,28 @@ import { computeDDSTableClient } from "@/lib/dds-client";
 import { db } from "@/lib/firebase";
 import { doc, updateDoc } from "firebase/firestore";
 
+interface DDSProgress {
+  completed: number;
+  total: number;
+}
+
 export function useDDS(
   hands: BoardHands | null,
   options?: {
     cachedResult?: DDSTable | null;
     firestorePath?: { uid: string; tournamentId: string; boardId: string };
   }
-): DDSTable | null {
+): { ddsTable: DDSTable | null; progress: DDSProgress | null } {
   const [ddsTable, setDdsTable] = useState<DDSTable | null>(
     options?.cachedResult || null
   );
+  const [progress, setProgress] = useState<DDSProgress | null>(null);
   const hasComputed = useRef(false);
 
   useEffect(() => {
     if (options?.cachedResult) {
       setDdsTable(options.cachedResult);
+      setProgress(null);
       hasComputed.current = true;
     }
   }, [options?.cachedResult]);
@@ -42,9 +49,16 @@ export function useDDS(
 
     async function compute() {
       try {
-        // Use Web Worker (client-side WASM)
-        const result = await computeDDSTableClient(hands as unknown as Record<string, Record<string, string[]>>);
+        const result = await computeDDSTableClient(
+          hands as unknown as Record<string, Record<string, string[]>>,
+          (p) => {
+            setProgress({ completed: p.completed, total: p.total });
+            // Show partial results as they come in
+            setDdsTable(p.partial as unknown as DDSTable);
+          },
+        );
         setDdsTable(result as unknown as DDSTable);
+        setProgress(null);
 
         // Cache in Firestore
         if (uid && tournamentId && boardId) {
@@ -59,6 +73,7 @@ export function useDDS(
         }
       } catch (err) {
         console.error("DDS calculation failed:", err);
+        setProgress(null);
         hasComputed.current = false;
       }
     }
@@ -66,5 +81,5 @@ export function useDDS(
     compute();
   }, [hands, ddsTable, uid, tournamentId, boardId]);
 
-  return ddsTable;
+  return { ddsTable, progress };
 }

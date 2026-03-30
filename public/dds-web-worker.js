@@ -167,6 +167,8 @@ self.onmessage = async function(e) {
       const denominations = ["C", "D", "H", "S", "NT"];
       const result = { N: {}, E: {}, S: {}, W: {} };
 
+      let completed = 0;
+      const total = denominations.length * directions.length;
       for (const denom of denominations) {
         for (const decl of directions) {
           // Reset WASM for each cell to avoid state contamination
@@ -176,6 +178,9 @@ self.onmessage = async function(e) {
           const leaderDir = LHO[decl];
           const leaderTricks = await doubleDummySolveTricks(deal, [], leaderDir, denom);
           result[decl][denom] = 13 - leaderTricks;
+          completed++;
+          // Send progress update
+          self.postMessage({ id, progress: { completed, total, partial: JSON.parse(JSON.stringify(result)) } });
         }
       }
 

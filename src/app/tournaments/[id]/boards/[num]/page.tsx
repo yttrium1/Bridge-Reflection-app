@@ -137,7 +137,7 @@ export default function BoardDetailPage() {
     }
   }, [user, tournamentId, boardNum, favorite]);
 
-  const ddsResult = useDDS(board?.hands || null, {
+  const { ddsTable: ddsResult, progress: ddsProgress } = useDDS(board?.hands || null, {
     cachedResult: board?.ddsTable || null,
     firestorePath: user ? { uid: user.uid, tournamentId, boardId: boardNum } : undefined,
   });
@@ -397,7 +397,7 @@ export default function BoardDetailPage() {
             myDirections={isEW ? ["E", "W"] : ["N", "S"]}
           />
           <div className="flex flex-col gap-3">
-            <DDSTable ddsTable={ddsResult || board.ddsTable} />
+            <DDSTable ddsTable={ddsResult || board.ddsTable} progress={ddsProgress} />
             <BestLead hands={board.hands} contract={myResult?.contract} declarer={myResult?.declarer} />
           </div>
         </div>

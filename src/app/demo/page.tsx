@@ -30,7 +30,7 @@ const MOCK_TRAVELLERS: TravellerRow[] = [
 
 
 export default function DemoPage() {
-  const ddsResult = useDDS(MOCK_HANDS);
+  const { ddsTable: ddsResult } = useDDS(MOCK_HANDS);
 
   const handleBiddingChange = useCallback((newBidding: BiddingEntry[]) => {
     console.log("Bidding:", newBidding);

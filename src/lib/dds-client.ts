@@ -6,16 +6,24 @@
 let worker: Worker | null = null;
 let requestId = 0;
 const pendingRequests = new Map<number, { resolve: (v: any) => void; reject: (e: Error) => void }>();
+// Progress callbacks for fullTable mode
+const progressCallbacks = new Map<number, (progress: { completed: number; total: number; partial: any }) => void>();
 
 function getWorker(): Worker {
   if (typeof window === "undefined") throw new Error("Web Worker only available in browser");
   if (!worker) {
     worker = new Worker("/dds-web-worker.js");
     worker.onmessage = (e) => {
-      const { id, result, error } = e.data;
+      const { id, result, error, progress } = e.data;
+      if (progress) {
+        const cb = progressCallbacks.get(id);
+        if (cb) cb(progress);
+        return;
+      }
       const pending = pendingRequests.get(id);
       if (pending) {
         pendingRequests.delete(id);
+        progressCallbacks.delete(id);
         if (error) {
           pending.reject(new Error(error));
         } else {
@@ -74,7 +82,8 @@ function handsToStringFormat(hand: Record<string, string[]>): string {
  * Compute full DDS table (20 cells) in Web Worker
  */
 export async function computeDDSTableClient(
-  hands: Record<string, Record<string, string[]>>
+  hands: Record<string, Record<string, string[]>>,
+  onProgress?: (progress: { completed: number; total: number; partial: Record<string, Record<string, number>> }) => void,
 ): Promise<Record<string, Record<string, number>>> {
   const handStrings: Record<string, string> = {};
   for (const dir of ["N", "E", "S", "W"]) {
@@ -87,6 +96,12 @@ export async function computeDDSTableClient(
     if (count !== 13) {
       throw new Error(`${dir} has ${count} cards (need 13)`);
     }
+  }
+
+  // Register progress callback
+  const id = requestId + 1; // next id that sendToWorker will use
+  if (onProgress) {
+    progressCallbacks.set(id, onProgress);
   }
 
   return sendToWorker({ mode: "fullTable", hands: handStrings });

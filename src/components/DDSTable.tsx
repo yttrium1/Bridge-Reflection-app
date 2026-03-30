@@ -12,21 +12,53 @@ const SUIT_DISPLAY = [
 
 const DIRECTIONS = ["N", "S", "E", "W"] as const;
 
-export default function DDSTable({ ddsTable }: { ddsTable: DDSTableType | null }) {
+interface DDSTableProps {
+  ddsTable: DDSTableType | null;
+  progress?: { completed: number; total: number } | null;
+}
+
+export default function DDSTable({ ddsTable, progress }: DDSTableProps) {
   if (!ddsTable) {
     return (
       <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
         <h3 className="text-sm font-bold text-gray-600 mb-2">Double Dummy Analysis</h3>
-        <div className="text-xs text-gray-400 text-center py-4">
-          計算中...
+        <div className="py-4">
+          <div className="text-xs text-gray-400 text-center mb-2">
+            計算中...
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div
+              className="bg-[#1a5c2e] h-2 rounded-full transition-all duration-300"
+              style={{ width: progress ? `${(progress.completed / progress.total) * 100}%` : "5%" }}
+            />
+          </div>
+          {progress && (
+            <div className="text-[10px] text-gray-400 text-center mt-1">
+              {progress.completed} / {progress.total}
+            </div>
+          )}
         </div>
       </div>
     );
   }
 
+  // Check if we have partial results (some cells may be 0 or undefined during computation)
+  const isPartial = progress && progress.completed < progress.total;
+
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
-      <h3 className="text-sm font-bold text-gray-600 mb-2">Double Dummy Analysis</h3>
+      <h3 className="text-sm font-bold text-gray-600 mb-2">
+        Double Dummy Analysis
+        {isPartial && <span className="text-xs text-gray-400 font-normal ml-2">({progress.completed}/{progress.total})</span>}
+      </h3>
+      {isPartial && (
+        <div className="w-full bg-gray-200 rounded-full h-1.5 mb-2">
+          <div
+            className="bg-[#1a5c2e] h-1.5 rounded-full transition-all duration-300"
+            style={{ width: `${(progress.completed / progress.total) * 100}%` }}
+          />
+        </div>
+      )}
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b-2 border-[#1a5c2e]">
@@ -43,15 +75,17 @@ export default function DDSTable({ ddsTable }: { ddsTable: DDSTableType | null }
             <tr key={dir} className="border-t border-gray-100">
               <td className="px-2 py-1 font-bold text-[#1a5c2e]">{dir}</td>
               {SUIT_DISPLAY.map((s) => {
-                const tricks = ddsTable[dir][s.key];
+                const tricks = ddsTable[dir]?.[s.key];
+                const hasValue = tricks !== undefined && tricks !== 0;
                 return (
                   <td
                     key={s.key}
                     className={`px-2 py-1 text-center font-mono ${
-                      tricks >= 7 ? "text-blue-700 font-bold" : "text-gray-600"
+                      !hasValue ? "text-gray-300"
+                      : tricks >= 7 ? "text-blue-700 font-bold" : "text-gray-600"
                     }`}
                   >
-                    {tricks}
+                    {hasValue ? tricks : isPartial ? "·" : tricks}
                   </td>
                 );
               })}
