@@ -27,6 +27,7 @@ export default function SharedBoardPage() {
   const [tournamentDocId, setTournamentDocId] = useState<string>("");
   const [loading, setLoading] = useState(true);
 
+  // 共有ページではFirestoreキャッシュ書き込みしない（権限なし）
   const ddsResult = useDDS(board?.hands || null, {
     cachedResult: board?.ddsTable || null,
   });
