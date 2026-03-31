@@ -26,6 +26,7 @@ export default function SharedBoardPage() {
   const [ownerUid, setOwnerUid] = useState<string>("");
   const [tournamentDocId, setTournamentDocId] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const [favorite, setFavorite] = useState(false);
 
   // 共有ページではFirestoreキャッシュ書き込みしない（権限なし）
   const { ddsTable: ddsResult, progress: ddsProgress } = useDDS(board?.hands || null, {
@@ -54,7 +55,9 @@ export default function SharedBoardPage() {
           doc(db, "users", uid, "tournaments", tDoc.id, "boards", boardNum)
         );
         if (bDoc.exists()) {
-          setBoard(bDoc.data() as BoardData);
+          const bData = bDoc.data() as BoardData;
+          setBoard(bData);
+          setFavorite(!!(bData as BoardData & { favorite?: boolean }).favorite);
         }
       } catch (err) {
         console.error("Failed to load shared board:", err);
@@ -120,6 +123,18 @@ export default function SharedBoardPage() {
     [boardDocRef, board?.comment]
   );
 
+  const toggleFavorite = useCallback(async () => {
+    if (!boardDocRef) return;
+    const newVal = !favorite;
+    setFavorite(newVal);
+    try {
+      await updateDoc(boardDocRef, { favorite: newVal });
+    } catch (err) {
+      console.error("Failed to toggle favorite:", err);
+      setFavorite(!newVal);
+    }
+  }, [boardDocRef, favorite]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#f0f4f1]">
@@ -151,12 +166,21 @@ export default function SharedBoardPage() {
 
   return (
     <div className="min-h-screen bg-[#f0f4f1]">
-      <header className="bg-[#1a5c2e] text-white shadow-md">
+      <header className="bg-[#1a5c2e] text-white shadow-md sticky top-0 z-50">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link href={`/shared/${token}`} className="hover:text-green-200">&larr;</Link>
             <div>
-              <h1 className="text-lg font-bold">Board {currentNum}{sessionMatch ? ` (S${sessionMatch[1]})` : ""}</h1>
+              <h1 className="text-lg font-bold flex items-center gap-2">
+                Board {currentNum}{sessionMatch ? ` (S${sessionMatch[1]})` : ""}
+                <button
+                  onClick={toggleFavorite}
+                  className="text-xl leading-none hover:scale-110 transition-transform"
+                  title={favorite ? "お気に入り解除" : "お気に入り登録"}
+                >
+                  {favorite ? "⭐" : "☆"}
+                </button>
+              </h1>
               <p className="text-xs text-green-200">
                 {tournament.name}
                 <span className="ml-2 px-1.5 py-0.5 bg-white/20 rounded text-[10px]">共有</span>
@@ -184,9 +208,11 @@ export default function SharedBoardPage() {
             <div className="flex items-center justify-between">
               <div>
                 <span className="text-sm text-gray-600">
-                  {myResult.ns === pairNumber
-                    ? `NS ${myResult.ns} vs EW ${myResult.ew}`
-                    : `EW ${myResult.ew} vs NS ${myResult.ns}`}
+                  {myResult.ns === pairNumber ? (
+                    <><span className="font-bold text-gray-900">NS {myResult.ns}</span> vs EW {myResult.ew}</>
+                  ) : (
+                    <><span className="font-bold text-gray-900">EW {myResult.ew}</span> vs NS {myResult.ns}</>
+                  )}
                 </span>
                 <div className="text-lg font-bold">
                   {myResult.contract} by {myResult.declarer}{" "}

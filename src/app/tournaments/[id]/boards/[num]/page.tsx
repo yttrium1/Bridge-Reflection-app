@@ -175,7 +175,7 @@ export default function BoardDetailPage() {
 
   return (
     <div className="min-h-screen bg-[#f0f4f1]">
-      <header className="bg-[#1a5c2e] text-white shadow-md">
+      <header className="bg-[#1a5c2e] text-white shadow-md sticky top-0 z-50">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link
@@ -233,9 +233,11 @@ export default function BoardDetailPage() {
               <div>
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-600">
-                    {myResult.ns === pairNumber
-                      ? `NS ${myResult.ns} vs EW ${myResult.ew}`
-                      : `EW ${myResult.ew} vs NS ${myResult.ns}`}
+                    {myResult.ns === pairNumber ? (
+                      <><span className="font-bold text-gray-900">NS {myResult.ns}</span> vs EW {myResult.ew}</>
+                    ) : (
+                      <><span className="font-bold text-gray-900">EW {myResult.ew}</span> vs NS {myResult.ns}</>
+                    )}
                   </span>
                   {(() => {
                     const decl = myResult.declarer as string;

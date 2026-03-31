@@ -18,6 +18,7 @@ export default function SharedTournamentPage() {
   const [tournamentId, setTournamentId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [filterFavorite, setFilterFavorite] = useState(false);
 
   useEffect(() => {
     const fetchShared = async () => {
@@ -119,6 +120,22 @@ export default function SharedTournamentPage() {
         {/* Weakness Analysis */}
         <WeaknessAnalysis boards={boards} tournament={tournament} tournamentId={tournamentId || ""} boardLinkPrefix={`/shared/${token}/boards`} />
 
+        {/* Favorite Filter */}
+        {boards.some(b => (b as BoardData & { favorite?: boolean }).favorite) && (
+          <div className="mb-4">
+            <button
+              onClick={() => setFilterFavorite(!filterFavorite)}
+              className={`text-sm px-4 py-2 rounded-lg font-bold transition ${
+                filterFavorite
+                  ? "bg-red-100 text-red-600 border-2 border-red-400"
+                  : "bg-white text-gray-500 border border-gray-200 hover:border-red-300"
+              }`}
+            >
+              ⭐ お気に入り{filterFavorite ? "のみ表示中" : "で絞り込み"}
+            </button>
+          </div>
+        )}
+
         {(() => {
           // Group boards by session
           const sessions = new Map<string, (BoardData & { _docId?: string })[]>();
@@ -146,8 +163,11 @@ export default function SharedTournamentPage() {
                   </h3>
                 )}
                 <div className="grid gap-2 grid-cols-2 sm:grid-cols-4">
-                  {sessionBoards.map((board) => {
+                  {sessionBoards
+                    .filter(b => !filterFavorite || (b as BoardData & { favorite?: boolean }).favorite)
+                    .map((board) => {
                     const boardDocId = (board as BoardData & { _docId?: string })._docId || String(board.boardNumber);
+                    const isFav = !!(board as BoardData & { favorite?: boolean }).favorite;
                     const myResult = board.travellers.find(
                       (t) => t.ns === sessionPairNumber || t.ew === sessionPairNumber
                     );
@@ -162,12 +182,12 @@ export default function SharedTournamentPage() {
                       <Link
                         key={boardDocId}
                         href={`/shared/${token}/boards/${boardDocId}`}
-                        className="bg-white rounded-lg shadow-sm px-3 py-2 hover:shadow-md transition-shadow border border-gray-100 block"
+                        className={`bg-white rounded-lg shadow-sm px-3 py-2 hover:shadow-md transition-shadow border-2 block ${isFav ? "border-red-400" : "border-gray-100"}`}
                       >
                         <div className="flex items-center justify-between gap-2">
                           <div className="min-w-0">
                             <div className="flex items-center gap-2">
-                              <span className="text-xs font-bold text-[#1a5c2e]">#{board.boardNumber}</span>
+                              <span className="text-xs font-bold text-[#1a5c2e]">{isFav && "⭐"}#{board.boardNumber}</span>
                               {myResult && (
                                 <span className="text-xs text-gray-500">
                                   {myResult.contract} {myResult.declarer}{" "}
